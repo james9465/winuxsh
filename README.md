@@ -53,7 +53,7 @@ A modern Unix-style command-line shell for Windows, written in Rust. WinSH provi
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/winuxsh.git
-cd winuxsh/mvp6
+cd winuxsh
 
 # Build release version
 cargo build --release
@@ -64,8 +64,28 @@ cargo build --release
 ### Setup
 
 1. Add the executable directory to your PATH
-2. Copy winuxcmd tools to your PATH
+2. Configure utils backend (default: winuxcmd)
 3. Configure Windows Terminal to use WinSH as default shell
+
+### Utils Backend Configuration
+
+WinSH supports multiple Unix utils backends:
+
+**Default Backend (WinuxCmd)**:
+```bash
+# Already configured in utils/winuxcmd/
+# Available commands: ls, cat, grep, find, cp, mv, rm, mkdir, etc.
+```
+
+**Switching Backends**:
+```bash
+# Edit ~/.winshrc.toml
+[utils]
+backend = "winuxcmd"  # or "uutils"
+path = "utils/winuxcmd"
+```
+
+For more details, see `utils/README.md`.
 
 ## Usage
 
