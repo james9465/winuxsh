@@ -1,0 +1,71 @@
+# Rust build artifacts
+target/
+Cargo.lock
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Build and temporary files
+*.log
+build.log
+clean_build.log
+
+# Old MVP versions
+mvp/
+mvp0-*/
+mvp1-*/
+mvp2-*/
+mvp3-*/
+mvp4-*/
+mvp5-*/
+mvp6-*/
+
+# Internal documentation
+AGENTS.md
+
+# Temporary and test files
+*.exe
+*.pdb
+*.d
+*.ilk
+*.obj
+*.o
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Debug files
+*.debug
+*.rs.bk
+
+# Test coverage
+*.profraw
+*.profdata
+
+# Distribution
+dist/

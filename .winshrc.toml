@@ -1,0 +1,12 @@
+# WinSH Configuration File
+
+# Simple color configuration using ANSI escape sequences
+prompt_user_color = \x1b[1;32m
+prompt_host_color = \x1b[1;36m
+prompt_dir_color = \x1b[1;34m
+prompt_symbol = \x1b[0m
+
+# Aliases
+ll = "ls -la"
+la = "ls -a"
+l = "ls -CF"
