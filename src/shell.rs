@@ -8,7 +8,7 @@ use reedline::{Reedline, FileBackedHistory, DefaultCompleter, ColumnarMenu,
                MenuBuilder};
 use colored::Colorize;
 
-use crate::error::Result;
+use crate::error::{Result, ShellError};
 use crate::array::ArrayValue;
 use crate::config::ShellConfig;
 use crate::plugin::PluginManager;
@@ -30,6 +30,7 @@ pub struct Shell {
     pub plugins: PluginManager,
     pub job_manager: JobManager,
     pub theme_plugin: ThemePlugin,
+    pub last_exit_code: i32,
 }
 
 impl Shell {
@@ -183,6 +184,7 @@ impl Shell {
             plugins: PluginManager::new(),
             job_manager: JobManager::new(),
             theme_plugin: ThemePlugin::new(),
+            last_exit_code: 0,
         };
 
         // Load default aliases
@@ -398,14 +400,16 @@ impl Shell {
                 self.execute_pipeline(cmds)?;
             }
             ParsedCommand::And(left, right) => {
-                // Execute left command, only execute right if left succeeds
-                if self.execute_parsed(left).is_ok() {
+                // Execute left command, only execute right if exit code is 0
+                self.execute_parsed(left)?;
+                if self.last_exit_code == 0 {
                     self.execute_parsed(right)?;
                 }
             }
             ParsedCommand::Or(left, right) => {
-                // Execute left command, only execute right if left fails
-                if self.execute_parsed(left).is_err() {
+                // Execute left command, only execute right if exit code is non-zero
+                self.execute_parsed(left)?;
+                if self.last_exit_code != 0 {
                     self.execute_parsed(right)?;
                 }
             }
@@ -461,7 +465,17 @@ impl Shell {
 
         // Now check if it's a built-in command with expanded arguments
         if let Some(result) = self.handle_builtin(&all_args) {
-            return result;
+            match result {
+                Ok(()) => {
+                    self.last_exit_code = 0;
+                    return Ok(());
+                }
+                Err(e) => {
+                    self.last_exit_code = 1;
+                    eprintln!("{} {}", "Error:".red(), e);
+                    return Ok(());
+                }
+            }
         }
 
         let args: Vec<String> = all_args[1..].to_vec();
@@ -480,11 +494,15 @@ impl Shell {
         cmd_info.args = all_args;
         
         match executor.execute(&clean_command, &args, &cmd_info) {
-            Ok(_exit_code) => {
-                // Command executed successfully
+            Ok(exit_code) => {
+                self.last_exit_code = exit_code;
                 Ok(())
             }
             Err(e) => {
+                self.last_exit_code = match e {
+                    ShellError::CommandNotFound(_) => 127,
+                    _ => 1,
+                };
                 eprintln!("{} {}", "Error:".red(), e);
                 Ok(())
             }
@@ -603,5 +621,35 @@ mod tests {
         let shell = Shell::new(false).unwrap();
         let value = shell.get_env_var("USERNAME", "default");
         assert!(value != "default" || std::env::var("USERNAME").is_err());
+    }
+
+    #[test]
+    fn test_and_short_circuit_on_failure() {
+        let mut shell = Shell::new(false).unwrap();
+        shell.env_vars.remove("SHOULD_NOT_RUN");
+        shell.execute_command("notexistcmd && set SHOULD_NOT_RUN=1").unwrap();
+        assert!(shell.env_vars.get("SHOULD_NOT_RUN").is_none());
+        assert_ne!(shell.last_exit_code, 0);
+    }
+
+    #[test]
+    fn test_or_runs_on_failure() {
+        let mut shell = Shell::new(false).unwrap();
+        shell.env_vars.remove("SHOULD_RUN");
+        shell.execute_command("notexistcmd || set SHOULD_RUN=1").unwrap();
+        assert_eq!(
+            shell.env_vars.get("SHOULD_RUN"),
+            Some(&ArrayValue::String("1".to_string()))
+        );
+        assert_eq!(shell.last_exit_code, 0);
+    }
+
+    #[test]
+    fn test_or_short_circuit_on_success() {
+        let mut shell = Shell::new(false).unwrap();
+        shell.env_vars.remove("SHOULD_NOT_RUN_OR");
+        shell.execute_command("echo hi || set SHOULD_NOT_RUN_OR=1").unwrap();
+        assert!(shell.env_vars.get("SHOULD_NOT_RUN_OR").is_none());
+        assert_eq!(shell.last_exit_code, 0);
     }
 }

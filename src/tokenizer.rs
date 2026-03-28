@@ -95,7 +95,17 @@ impl Tokenizer {
                     tokens.push(Token::Word(current.trim().to_string()));
                     current.clear();
                 }
-                tokens.push(Token::Pipe);
+                // Check for ||
+                if let Some(&next_ch) = chars_iter.peek() {
+                    if next_ch == '|' {
+                        chars_iter.next(); // Consume second |
+                        tokens.push(Token::Or);
+                    } else {
+                        tokens.push(Token::Pipe);
+                    }
+                } else {
+                    tokens.push(Token::Pipe);
+                }
             } else if ch == '&' {
                 if !current.trim().is_empty() {
                     tokens.push(Token::Word(current.trim().to_string()));
@@ -249,6 +259,13 @@ mod tests {
         let tokens = Tokenizer::tokenize("cmd1 && cmd2").unwrap();
         assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[1], Token::And);
+    }
+
+    #[test]
+    fn test_tokenize_or() {
+        let tokens = Tokenizer::tokenize("cmd1 || cmd2").unwrap();
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[1], Token::Or);
     }
 
     #[test]
