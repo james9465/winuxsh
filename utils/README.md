@@ -46,7 +46,7 @@ To add a new utils backend:
 
 ## Current Active Backend
 - **Backend**: WinuxCmd
-- **Version**: 0.5.2
+- **Version**: 0.7.2
 - **Status**: Default
 
 ## Backend Comparison
