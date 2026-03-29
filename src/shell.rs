@@ -690,7 +690,9 @@ impl Shell {
     ) -> Result<bool> {
         let has_redirection = cmd_info.stdin_redir.is_some()
             || cmd_info.stdout_redir.is_some()
-            || cmd_info.stderr_redir.is_some();
+            || cmd_info.stderr_redir.is_some()
+            || cmd_info.stderr_to_stdout
+            || cmd_info.stdout_to_stderr;
         if !has_redirection {
             return Ok(false);
         }
@@ -699,39 +701,64 @@ impl Shell {
             "echo" => {
                 let mut output = args[1..].join(" ");
                 output.push('\n');
-                self.write_redirection_output(&output, cmd_info)?;
+                self.write_builtin_output(&output, cmd_info)?;
                 Ok(true)
             }
             "pwd" => {
                 let output = format!("{}\n", self.current_dir.display());
-                self.write_redirection_output(&output, cmd_info)?;
+                self.write_builtin_output(&output, cmd_info)?;
                 Ok(true)
             }
             _ => Ok(false),
         }
     }
 
-    fn write_redirection_output(&self, output: &str, cmd_info: &CommandInfo) -> Result<()> {
-        if let Some(ref stdout_file) = cmd_info.stdout_redir {
-            use std::io::Write;
-            let mut file = if cmd_info.stdout_append {
-                std::fs::OpenOptions::new()
-                    .append(true)
-                    .create(true)
-                    .open(stdout_file)?
+    fn write_builtin_output(&self, output: &str, cmd_info: &CommandInfo) -> Result<()> {
+        // If stdout is redirected to stderr (1>&2), emit to stderr destination.
+        if cmd_info.stdout_to_stderr {
+            if let Some(ref stderr_file) = cmd_info.stderr_redir {
+                self.write_to_file(stderr_file, cmd_info.stderr_append, output)?;
             } else {
-                std::fs::OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(stdout_file)?
-            };
-            file.write_all(output.as_bytes())?;
-            return Ok(());
+                eprint!("{}", output);
+            }
+        } else if let Some(ref stdout_file) = cmd_info.stdout_redir {
+            self.write_to_file(stdout_file, cmd_info.stdout_append, output)?;
+        } else {
+            print!("{}", output);
         }
 
-        print!("{}", output);
+        // If stderr is redirected to file for a builtin with no stderr output,
+        // still materialize the file (bash-compatible touch/truncate behavior).
+        if let Some(ref stderr_file) = cmd_info.stderr_redir {
+            if !cmd_info.stdout_to_stderr {
+                let _ = self.open_file_for_redirect(stderr_file, cmd_info.stderr_append)?;
+            }
+        }
+
         Ok(())
+    }
+
+    fn write_to_file(&self, path: &str, append: bool, content: &str) -> Result<()> {
+        use std::io::Write;
+        let mut file = self.open_file_for_redirect(path, append)?;
+        file.write_all(content.as_bytes())?;
+        Ok(())
+    }
+
+    fn open_file_for_redirect(&self, path: &str, append: bool) -> Result<std::fs::File> {
+        let file = if append {
+            std::fs::OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(path)?
+        } else {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(path)?
+        };
+        Ok(file)
     }
 
     /// Execute a script file with basic script semantics and positional args.
@@ -1201,16 +1228,11 @@ mod tests {
         let mut shell = Shell::new(false).unwrap();
         let test_dir = std::env::temp_dir().join(format!("winuxsh_redir_{}", std::process::id()));
         fs::create_dir_all(&test_dir).unwrap();
-
-        let old_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(&test_dir).unwrap();
-        shell.current_dir = test_dir.clone();
-
-        shell.execute_command("echo hello > out.txt").unwrap();
-        let out = fs::read_to_string(test_dir.join("out.txt")).unwrap();
+        let out_path = test_dir.join("out.txt");
+        let cmd = format!("echo hello > {}", out_path.to_string_lossy());
+        shell.execute_command(&cmd).unwrap();
+        let out = fs::read_to_string(out_path).unwrap();
         assert_eq!(out, "hello\n");
-
-        std::env::set_current_dir(old_dir).unwrap();
         let _ = fs::remove_dir_all(test_dir);
     }
 
@@ -1220,11 +1242,8 @@ mod tests {
         let test_dir = std::env::temp_dir().join(format!("winuxsh_script_{}", std::process::id()));
         fs::create_dir_all(&test_dir).unwrap();
 
-        let old_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(&test_dir).unwrap();
-        shell.current_dir = test_dir.clone();
-
         let script_path = test_dir.join("verify.sh");
+        let out_path = test_dir.join("out.txt");
         let script = "\
 #!/bin/bash
 while true; do
@@ -1239,21 +1258,47 @@ esac
 echo first=$1
 shift
 echo second=$1
-echo redirected > out.txt
+echo redirected > __OUT_PATH__
 ";
+        let script = script.replace("__OUT_PATH__", &out_path.to_string_lossy());
         fs::write(&script_path, script).unwrap();
 
         let args = vec!["A".to_string(), "B".to_string()];
         shell.run_script_file(&script_path, &args).unwrap();
 
-        let out = fs::read_to_string(test_dir.join("out.txt")).unwrap();
+        let out = fs::read_to_string(out_path).unwrap();
         assert_eq!(out, "redirected\n");
         assert_eq!(
             shell.env_vars.get("RUN_CMD"),
             Some(&ArrayValue::String("echo".to_string()))
         );
+        let _ = fs::remove_dir_all(test_dir);
+    }
 
-        std::env::set_current_dir(old_dir).unwrap();
+    #[test]
+    fn test_builtin_stderr_redirection_file_materialized() {
+        let mut shell = Shell::new(false).unwrap();
+        let test_dir = std::env::temp_dir().join(format!("winuxsh_stderr_{}", std::process::id()));
+        fs::create_dir_all(&test_dir).unwrap();
+        let err_path = test_dir.join("err.txt");
+        let cmd = format!("echo hello 2> {}", err_path.to_string_lossy());
+        shell.execute_command(&cmd).unwrap();
+        let err = fs::read_to_string(err_path).unwrap();
+        assert_eq!(err, "");
+        let _ = fs::remove_dir_all(test_dir);
+    }
+
+    #[test]
+    fn test_builtin_stdout_to_stderr_file() {
+        let mut shell = Shell::new(false).unwrap();
+        let test_dir =
+            std::env::temp_dir().join(format!("winuxsh_stdout_to_stderr_{}", std::process::id()));
+        fs::create_dir_all(&test_dir).unwrap();
+        let err_path = test_dir.join("err.txt");
+        let cmd = format!("echo redirected 1>&2 2> {}", err_path.to_string_lossy());
+        shell.execute_command(&cmd).unwrap();
+        let err = fs::read_to_string(err_path).unwrap();
+        assert_eq!(err, "redirected\n");
         let _ = fs::remove_dir_all(test_dir);
     }
 }
