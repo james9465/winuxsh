@@ -1,0 +1,86 @@
+
+# WinuxCmd Command Classification Configuration
+# Actual 137 commands based on WinuxCmd source files
+
+[simple_commands]
+# Simple IPC commands - non-interactive, output-only
+simple = [
+    # File operations
+    "ls", "cat", "cp", "mv", "rm", "touch", "mkdir", "rmdir", "ln", "link", "unlink",
+    "chmod", "stat", "file", "find", "tree", "du", "df",
+    
+    # Text processing
+    "grep", "head", "tail", "sort", "uniq", "cut", "paste", "join", "comm", "cmp",
+    "diff", "diff3", "sdiff", "tr", "rev", "tac", "nl", "pr", "fold", "fmt", "column",
+    "expand", "unexpand", "split", "csplit", "tee", "od", "xxd",
+    
+    # Hash/checksum
+    "md5sum", "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha512sum", "b2sum",
+    "cksum", "sum", "hmac256", "base64", "base32", "basenc",
+    
+    # System info
+    "arch", "uname", "hostname", "hostid", "who", "whoami", "users", "id", "groups",
+    "uptime", "free", "du", "df", "ps", "tty", "locale", "logname",
+    
+    # Process management
+    "kill", "nice", "nohup", "jobs", "bg", "fg", "watch", "timeout", "sleep",
+    "sync", "users",
+    
+    # Path operations
+    "pwd", "realpath", "readlink", "dirname", "basename", "pathchk",
+    "cygpath", "d2u", "u2d", "unix2dos", "dos2unix",
+    
+    # File content
+    "echo", "printf", "printenv", "env", "test", "test_bracket",
+    
+    # System utilities
+    "date", "cal", "uptime", "true", "false", "yes", "seq", "factor", "numfmt",
+    "nproc", "infocmp", "getconf", "stdbuf", "tput", "tic", "toe", "tty",
+    "reset", "clear", "shred", "truncate", "tsort", "ptx",
+    
+    # Archive and conversion
+    "cpio", "patch", "dd", "sync",
+    
+    # Compression (if available)
+    # "gzip", "gunzip", "bzip2", "bunzip2", "xz", "unxz",
+    
+    # Misc
+    "pink", "mpicalc",
+]
+
+[interactive_commands]
+# Interactive commands requiring TTY handling
+interactive = [
+    "less", "top", "vim", "vi", "nano", "emacs",
+]
+
+[complex_commands]
+# Commands with complex parsing or special behavior  
+complex = [
+    "sed", "awk", "grep", "xargs", "find", "jq",
+]
+
+[builtin_commands]
+# Native WinSH implemented commands
+builtin = [
+    "cd", "pwd", "echo", "exit", "clear", "cls", "env", "set", "unset", "export",
+    "jobs", "bg", "fg", "kill", "history", "alias", "unalias", "help",
+]
+
+[command_priority]
+# Execution priority (1=highest)
+priority = {
+    builtin = 1,      # Native WinSH commands
+    simple = 2,       # Simple IPC commands (most common)
+    complex = 3,      # Complex IPC commands  
+    interactive = 4,  # Interactive commands (TTY handling)
+}
+
+[command_handling]
+# Special handling rules
+[special_handling]
+# Commands that need special TTY or execution handling
+tty_restore = ["less", "top", "vim", "vi", "nano"]
+pipe_friendly = ["grep", "sed", "awk", "cut", "sort", "uniq", "head", "tail"]
+stream_output = ["tail", "head", "grep", "sed"]
+batch_mode = ["find", "xargs", "grep", "sed"]
