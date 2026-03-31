@@ -2,12 +2,12 @@
 // Ported from MVP5 to provide external command execution
 
 use std::env;
-use std::path::PathBuf;
 use std::fs::File;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-use crate::error::{Result, ShellError};
 use crate::array::ArrayValue;
+use crate::error::{Result, ShellError};
 use crate::tokenizer::CommandInfo;
 
 /// Executor for external commands
@@ -43,7 +43,10 @@ impl Executor {
         let program = match cmd_path {
             Some(path) => path,
             None => {
-                return Err(ShellError::CommandNotFound(format!("Command '{}' not found", cmd)));
+                return Err(ShellError::CommandNotFound(format!(
+                    "Command '{}' not found",
+                    cmd
+                )));
             }
         };
 
@@ -142,9 +145,10 @@ impl Executor {
                     println!("Background job started: [{}] {}", pid, cmd_str);
                     Ok(0)
                 }
-                Err(e) => {
-                    Err(ShellError::CommandNotFound(format!("Failed to start background process: {}", e)))
-                }
+                Err(e) => Err(ShellError::CommandNotFound(format!(
+                    "Failed to start background process: {}",
+                    e
+                ))),
             }
         } else {
             match command.status() {
@@ -155,18 +159,18 @@ impl Executor {
                     }
                     Ok(code)
                 }
-                Err(e) => {
-                    Err(ShellError::CommandNotFound(format!("Failed to execute '{}': {}", cmd, e)))
-                }
+                Err(e) => Err(ShellError::CommandNotFound(format!(
+                    "Failed to execute '{}': {}",
+                    cmd, e
+                ))),
             }
         }
     }
 
     /// Find a command in PATH
     pub fn find_command_in_path(&self, cmd: &str) -> Result<Option<PathBuf>> {
-        let clean_cmd = cmd.trim_matches(|c: char| {
-            c == '\u{feff}' || c == '\u{fffe}' || c.is_whitespace()
-        });
+        let clean_cmd =
+            cmd.trim_matches(|c: char| c == '\u{feff}' || c == '\u{fffe}' || c.is_whitespace());
 
         // Check current directory - prioritize extensions
         let current_dir = self.current_dir.clone();
@@ -195,14 +199,13 @@ impl Executor {
         }
 
         // Search in PATH
-        let path_env = env::var("PATH")
-            .or_else(|_| {
-                self.env_vars
-                    .iter()
-                    .find(|(k, _)| k.eq_ignore_ascii_case("PATH"))
-                    .map(|(_, v)| v.clone())
-                    .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "PATH not found"))
-            });
+        let path_env = env::var("PATH").or_else(|_| {
+            self.env_vars
+                .iter()
+                .find(|(k, _)| k.eq_ignore_ascii_case("PATH"))
+                .map(|(_, v)| v.clone())
+                .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "PATH not found"))
+        });
 
         if let Ok(path_env) = path_env {
             let paths: Vec<_> = env::split_paths(&path_env).collect();
@@ -243,9 +246,10 @@ mod tests {
 
     #[test]
     fn test_executor_creation() {
-        let env_vars = vec![
-            ("PATH".to_string(), ArrayValue::String("/usr/bin:/bin".to_string())),
-        ];
+        let env_vars = vec![(
+            "PATH".to_string(),
+            ArrayValue::String("/usr/bin:/bin".to_string()),
+        )];
         let current_dir = PathBuf::from(".");
         let executor = Executor::new(&env_vars, &current_dir);
         assert_eq!(executor.env_vars.len(), 1);

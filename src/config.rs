@@ -1,6 +1,6 @@
 // Configuration management for WinSH
-use std::path::{Path, PathBuf};
 use crate::error::{Result, ShellError};
+use std::path::{Path, PathBuf};
 
 /// Terminal color configuration
 #[derive(Debug, Clone)]
@@ -14,10 +14,10 @@ pub struct TerminalColors {
 impl Default for TerminalColors {
     fn default() -> Self {
         TerminalColors {
-            prompt_user: "\x1b[1;32m".to_string(),  // Green
-            prompt_host: "\x1b[1;32m".to_string(),  // Green
-            prompt_dir: "\x1b[1;34m".to_string(),   // Blue
-            prompt_symbol: "\x1b[0m".to_string(),   // Reset
+            prompt_user: "\x1b[1;32m".to_string(), // Green
+            prompt_host: "\x1b[1;32m".to_string(), // Green
+            prompt_dir: "\x1b[1;34m".to_string(),  // Blue
+            prompt_symbol: "\x1b[0m".to_string(),  // Reset
         }
     }
 }

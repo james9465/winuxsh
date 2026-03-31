@@ -7,22 +7,22 @@ use crate::error::Result;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Word(String),
-    Pipe,           // |
-    And,            // &&
-    Or,             // ||
-    Background,     // &
-    Semicolon,      // ;
-    RedirIn,        // <
-    RedirOut,       // >
-    RedirAppend,    // >>
-    RedirErr,       // 2>
-    RedirErrAppend, // 2>>
-    RedirErrToOut,  // 2>&1
-    RedirOutToErr,  // 1>&2 or >&2
-    Wildcard(String),   // Wildcard pattern
+    Pipe,                 // |
+    And,                  // &&
+    Or,                   // ||
+    Background,           // &
+    Semicolon,            // ;
+    RedirIn,              // <
+    RedirOut,             // >
+    RedirAppend,          // >>
+    RedirErr,             // 2>
+    RedirErrAppend,       // 2>>
+    RedirErrToOut,        // 2>&1
+    RedirOutToErr,        // 1>&2 or >&2
+    Wildcard(String),     // Wildcard pattern
     CommandSubst(String), // Command substitution
-    ArrayStart,     // (
-    ArrayEnd,       // )
+    ArrayStart,           // (
+    ArrayEnd,             // )
 }
 
 /// Command information structure
@@ -86,7 +86,7 @@ impl Tokenizer {
         let mut in_quote = false;
         let mut quote_char = ' ';
         let mut chars_iter = cmd.chars().peekable();
-        
+
         while let Some(ch) = chars_iter.next() {
             if in_quote {
                 if ch == quote_char {
@@ -252,22 +252,22 @@ impl Tokenizer {
                 current.push(ch);
             }
         }
-        
+
         if !current.trim().is_empty() {
             tokens.push(Token::Word(current.trim().to_string()));
         }
-        
+
         // Process multi-character operators
         let processed_tokens = Self::process_operators(tokens)?;
-        
+
         Ok(processed_tokens)
     }
-    
+
     /// Process multi-character operators
     fn process_operators(tokens: Vec<Token>) -> Result<Vec<Token>> {
         let mut processed_tokens = Vec::new();
         let mut i = 0;
-        
+
         while i < tokens.len() {
             match &tokens[i] {
                 Token::Word(s) => {
@@ -291,7 +291,7 @@ impl Tokenizer {
                 }
             }
         }
-        
+
         Ok(processed_tokens)
     }
 }

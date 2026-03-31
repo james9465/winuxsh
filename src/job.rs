@@ -1,6 +1,6 @@
 // Job control for WinSH
-use std::fmt;
 use crate::error::{Result, ShellError};
+use std::fmt;
 
 /// Job status
 #[derive(Debug, Clone, Copy, PartialEq)]

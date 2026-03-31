@@ -5,6 +5,7 @@ use crate::job::JobStatus;
 use crate::oh_my_winuxsh::OhMyWinuxsh;
 use crate::plugin::Plugin;
 use crate::shell::Shell;
+use crate::winuxcmd_ffi::WinuxCmdFFI;
 use colored::Colorize;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -172,6 +173,18 @@ impl Shell {
                 if let Err(e) = plugin.execute(&args[1..], self) {
                     println!("Error executing oh-my-winuxsh command: {}", e);
                 }
+                Some(Ok(()))
+            }
+            "ffi_test" => {
+                self.handle_ffi_test(&args[1..]);
+                Some(Ok(()))
+            }
+            "ffi_version" => {
+                self.handle_ffi_version();
+                Some(Ok(()))
+            }
+            "ffi_commands" => {
+                self.handle_ffi_commands();
                 Some(Ok(()))
             }
             _ => None,
@@ -424,6 +437,11 @@ impl Shell {
         println!("  oh-my-winuxsh set-theme <name> - Change current theme");
         println!("  oh-my-winuxsh current-theme - Show current theme");
         println!();
+        println!("{}", "FFI (WinuxCmd):".cyan());
+        println!("  ffi_test [cmd] [args] - Test WinuxCmd FFI execution");
+        println!("  ffi_version            - Show WinuxCmd version");
+        println!("  ffi_commands           - List all available commands");
+        println!();
         println!("{}", "Available themes:".cyan());
         println!("  default, dark, light, colorful, minimal, cyberpunk, ocean, forest");
     }
@@ -457,6 +475,110 @@ impl Shell {
         let result = theme_plugin.execute(args, self);
         if let Err(e) = result {
             eprintln!("{} {}", "Theme error:".red(), e);
+        }
+    }
+
+    /// Handle FFI test command
+    fn handle_ffi_test(&mut self, args: &[String]) {
+        use crate::winuxcmd_ffi::WinuxCmdFFI;
+
+        println!("{}", "WinuxCmd FFI Test".cyan());
+        println!("{}", "================".cyan());
+
+        // Initialize FFI if needed
+        if let Err(e) = WinuxCmdFFI::init() {
+            eprintln!("{} {}", "FFI initialization failed:".red(), e);
+            return;
+        }
+
+        if !WinuxCmdFFI::is_available() {
+            eprintln!(
+                "{} {}",
+                "FFI not available:".yellow(),
+                "Initialization failed"
+            );
+            return;
+        }
+
+        let command = if args.len() > 0 {
+            args[0].clone()
+        } else {
+            "pwd".to_string()
+        };
+
+        let args_slice: Vec<String> = if args.len() > 1 {
+            args[1..].to_vec()
+        } else {
+            vec![]
+        };
+
+        println!("Executing: {} {:?}", command, args_slice);
+        println!();
+
+        match WinuxCmdFFI::execute(&command, &args_slice) {
+            Ok(response) => {
+                if !response.stdout.is_empty() {
+                    print!("{}", response.stdout);
+                }
+                if !response.stderr.is_empty() {
+                    eprint!("{} {}", "Error:".red(), response.stderr);
+                }
+                println!("Exit code: {}", response.exit_code);
+            }
+            Err(e) => {
+                eprintln!("{} {}", "FFI error:".red(), e);
+            }
+        }
+    }
+
+    /// Handle FFI version command
+    fn handle_ffi_version(&self) {
+        use crate::winuxcmd_ffi::WinuxCmdFFI;
+
+        let _ = WinuxCmdFFI::init();
+        if WinuxCmdFFI::is_available() {
+            let version = WinuxCmdFFI::get_version();
+            println!("{} {}", "WinuxCmd version:".green(), version);
+        } else {
+            eprintln!(
+                "{} {}",
+                "FFI not available:".yellow(),
+                "Initialization failed"
+            );
+        }
+    }
+
+    /// Handle FFI commands list command
+    fn handle_ffi_commands(&self) {
+        use crate::winuxcmd_ffi::WinuxCmdFFI;
+
+        let _ = WinuxCmdFFI::init();
+        if WinuxCmdFFI::is_available() {
+            match WinuxCmdFFI::get_all_commands() {
+                Ok(commands) => {
+                    println!(
+                        "{} {} available commands",
+                        "WinuxCmd".cyan(),
+                        commands.len()
+                    );
+                    println!("{}", "=================".cyan());
+                    for (i, cmd) in commands.iter().take(20).enumerate() {
+                        println!("  {:2}. {}", i + 1, cmd);
+                    }
+                    if commands.len() > 20 {
+                        println!("  ... and {} more commands", commands.len() - 20);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{} {}", "Failed to get commands:".red(), e);
+                }
+            }
+        } else {
+            eprintln!(
+                "{} {}",
+                "FFI not available:".yellow(),
+                "Initialization failed"
+            );
         }
     }
 }

@@ -73,13 +73,13 @@ impl PluginManager {
 
     /// Execute plugins
     pub fn execute(&mut self, args: &[String], shell: &mut Shell) -> Result<bool> {
-            for plugin in &mut self.plugins {
-                if plugin.execute(args, shell)? {
-                    return Ok(true); // Plugin handled the command
-                }
+        for plugin in &mut self.plugins {
+            if plugin.execute(args, shell)? {
+                return Ok(true); // Plugin handled the command
             }
-            Ok(false) // No plugin handled the command
         }
+        Ok(false) // No plugin handled the command
+    }
 
     /// Execute plugins with immutable self reference
     pub fn execute_readonly(&self, args: &[String], shell: &mut Shell) -> Result<bool> {

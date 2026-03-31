@@ -25,8 +25,10 @@ mod plugin;
 mod shell;
 mod theme;
 mod tokenizer;
+mod winuxcmd_ffi;
 
 use shell::Shell;
+use winuxcmd_ffi::WinuxCmdFFI;
 
 fn print_usage() {
     println!("WinSH usage:");
@@ -48,6 +50,11 @@ fn run() -> Result<()> {
     env_logger::Builder::new()
         .filter_level(log::LevelFilter::Error)
         .init();
+
+    // Initialize WinuxCmd daemon
+    if let Err(e) = initialize_winuxcmd_daemon() {
+        eprintln!("{} {}", "Warning:".yellow(), format!("Failed to initialize WinuxCmd daemon: {}", e));
+    }
 
     let args: Vec<String> = env::args().collect();
 
@@ -151,4 +158,55 @@ impl Shell {
 
         Ok(())
     }
+}
+
+/// Initialize WinuxCmd daemon
+fn initialize_winuxcmd_daemon() -> anyhow::Result<()> {
+    println!("{}", "Initializing WinuxCmd daemon...".blue());
+
+    // Initialize FFI first
+    WinuxCmdFFI::init().map_err(|e| anyhow::anyhow!("{}", e))?;
+
+    // Get version after FFI initialization
+    println!("{} {}", "WinuxCmd version:".blue(), WinuxCmdFFI::get_version());
+    println!("{} {}", "Protocol version:".blue(), WinuxCmdFFI::get_protocol_version());
+
+    // Check if daemon is available
+    if WinuxCmdFFI::is_available() {
+        println!("{}", "✓ WinuxCmd daemon is available".green());
+        return Ok(());
+    }
+
+    println!("{}", "✗ WinuxCmd daemon is not available, starting it...".yellow());
+
+    // Start daemon process
+    let daemon_exe = std::path::PathBuf::from("utils/winuxcmd/winuxcmd.exe");
+    if !daemon_exe.exists() {
+        return Err(anyhow::anyhow!("WinuxCmd executable not found at: {:?}", daemon_exe));
+    }
+
+    let mut daemon_cmd = std::process::Command::new(&daemon_exe);
+    daemon_cmd.arg("--daemon");
+    daemon_cmd.stdout(std::process::Stdio::piped());
+    daemon_cmd.stderr(std::process::Stdio::piped());
+
+    let mut child = daemon_cmd.spawn()
+        .map_err(|e| anyhow::anyhow!("Failed to start daemon: {}", e))?;
+
+    // Wait for daemon to start (give it 5 seconds)
+    for i in 0..50 {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        if WinuxCmdFFI::is_available() {
+            println!("{}", "✓ WinuxCmd daemon started successfully".green());
+            return Ok(());
+        }
+    }
+
+    // If daemon still not available, check child process status
+    let status = child.try_wait()?;
+    if let Some(exit_status) = status {
+        return Err(anyhow::anyhow!("Daemon exited with status: {:?}", exit_status));
+    }
+
+    Err(anyhow::anyhow!("Daemon failed to start within timeout"))
 }

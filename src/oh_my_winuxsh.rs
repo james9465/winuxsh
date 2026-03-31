@@ -4,7 +4,7 @@
 use crate::error::Result;
 use crate::plugin::Plugin;
 use crate::shell::Shell;
-use crate::theme::{ThemePlugin, Theme};
+use crate::theme::{Theme, ThemePlugin};
 
 #[derive(Debug)]
 pub struct OhMyWinuxsh;

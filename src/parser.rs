@@ -2,7 +2,7 @@
 // Ported from MVP5 to provide syntax analysis for shell commands
 
 use crate::error::Result;
-use crate::tokenizer::{Token, CommandInfo, ParsedCommand};
+use crate::tokenizer::{CommandInfo, ParsedCommand, Token};
 
 /// Parser for shell commands
 pub struct Parser;
@@ -13,7 +13,7 @@ impl Parser {
         // Improved version: handle pipes and semicolons
         let mut commands = Vec::new();
         let mut current_command = CommandInfo::default();
-        
+
         let mut i = 0;
         while i < tokens.len() {
             match &tokens[i] {
@@ -23,7 +23,10 @@ impl Parser {
                 }
                 Token::Pipe => {
                     if !current_command.args.is_empty() {
-                        commands.push(std::mem::replace(&mut current_command, CommandInfo::default()));
+                        commands.push(std::mem::replace(
+                            &mut current_command,
+                            CommandInfo::default(),
+                        ));
                     }
                     i += 1;
                 }
@@ -110,14 +113,18 @@ impl Parser {
                 }
                 Token::Semicolon => {
                     if !current_command.args.is_empty() {
-                        commands.push(std::mem::replace(&mut current_command, CommandInfo::default()));
+                        commands.push(std::mem::replace(
+                            &mut current_command,
+                            CommandInfo::default(),
+                        ));
                     }
                     i += 1;
                 }
                 Token::And => {
                     // Handle && operator
                     if !current_command.args.is_empty() {
-                        let left_cmd = std::mem::replace(&mut current_command, CommandInfo::default());
+                        let left_cmd =
+                            std::mem::replace(&mut current_command, CommandInfo::default());
                         let remaining_tokens = &tokens[i + 1..];
                         if !remaining_tokens.is_empty() {
                             let right_parsed = Self::parse(remaining_tokens)?;
@@ -132,7 +139,8 @@ impl Parser {
                 Token::Or => {
                     // Handle || operator
                     if !current_command.args.is_empty() {
-                        let left_cmd = std::mem::replace(&mut current_command, CommandInfo::default());
+                        let left_cmd =
+                            std::mem::replace(&mut current_command, CommandInfo::default());
                         let remaining_tokens = &tokens[i + 1..];
                         if !remaining_tokens.is_empty() {
                             let right_parsed = Self::parse(remaining_tokens)?;
@@ -144,21 +152,24 @@ impl Parser {
                     }
                     i += 1;
                 }
-                Token::ArrayStart | Token::ArrayEnd | Token::Wildcard(_) | Token::CommandSubst(_) => {
+                Token::ArrayStart
+                | Token::ArrayEnd
+                | Token::Wildcard(_)
+                | Token::CommandSubst(_) => {
                     // Handle array and special tokens
                     i += 1;
                 }
             }
         }
-        
+
         if !current_command.args.is_empty() {
             commands.push(current_command);
         }
-        
+
         if commands.is_empty() {
             return Ok(ParsedCommand::Single(CommandInfo::default()));
         }
-        
+
         if commands.len() == 1 {
             Ok(ParsedCommand::Single(commands[0].clone()))
         } else {
@@ -167,7 +178,12 @@ impl Parser {
             if has_pipe {
                 Ok(ParsedCommand::Pipeline(commands))
             } else {
-                Ok(ParsedCommand::Sequence(commands.into_iter().map(|cmd| ParsedCommand::Single(cmd)).collect()))
+                Ok(ParsedCommand::Sequence(
+                    commands
+                        .into_iter()
+                        .map(|cmd| ParsedCommand::Single(cmd))
+                        .collect(),
+                ))
             }
         }
     }
@@ -245,10 +261,7 @@ mod tests {
 
     #[test]
     fn test_parse_background() {
-        let tokens = vec![
-            Token::Word("cmd".to_string()),
-            Token::Background,
-        ];
+        let tokens = vec![Token::Word("cmd".to_string()), Token::Background];
         let parsed = Parser::parse(&tokens).unwrap();
         match parsed {
             ParsedCommand::Single(cmd) => {
@@ -260,10 +273,7 @@ mod tests {
 
     #[test]
     fn test_parse_stderr_to_stdout() {
-        let tokens = vec![
-            Token::Word("cmd".to_string()),
-            Token::RedirErrToOut,
-        ];
+        let tokens = vec![Token::Word("cmd".to_string()), Token::RedirErrToOut];
         let parsed = Parser::parse(&tokens).unwrap();
         match parsed {
             ParsedCommand::Single(cmd) => {
@@ -275,10 +285,7 @@ mod tests {
 
     #[test]
     fn test_parse_stdout_to_stderr() {
-        let tokens = vec![
-            Token::Word("cmd".to_string()),
-            Token::RedirOutToErr,
-        ];
+        let tokens = vec![Token::Word("cmd".to_string()), Token::RedirOutToErr];
         let parsed = Parser::parse(&tokens).unwrap();
         match parsed {
             ParsedCommand::Single(cmd) => {

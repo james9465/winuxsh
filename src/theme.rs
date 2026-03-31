@@ -23,13 +23,13 @@ impl Theme {
     pub fn default_theme() -> Self {
         Theme {
             name: "default".to_string(),
-            prompt_user: "\x1b[1;32m".to_string(),      // Green
-            prompt_host: "\x1b[1;36m".to_string(),      // Cyan
-            prompt_dir: "\x1b[1;34m".to_string(),       // Blue
-            prompt_symbol: "\x1b[0m".to_string(),        // Reset
-            error_color: "\x1b[31m".to_string(),        // Red
-            warning_color: "\x1b[33m".to_string(),      // Yellow
-            success_color: "\x1b[32m".to_string(),      // Green
+            prompt_user: "\x1b[1;32m".to_string(), // Green
+            prompt_host: "\x1b[1;36m".to_string(), // Cyan
+            prompt_dir: "\x1b[1;34m".to_string(),  // Blue
+            prompt_symbol: "\x1b[0m".to_string(),  // Reset
+            error_color: "\x1b[31m".to_string(),   // Red
+            warning_color: "\x1b[33m".to_string(), // Yellow
+            success_color: "\x1b[32m".to_string(), // Green
         }
     }
 
@@ -37,10 +37,10 @@ impl Theme {
     pub fn dark_theme() -> Self {
         Theme {
             name: "dark".to_string(),
-            prompt_user: "\x1b[1;38m".to_string(),      // Bright white
-            prompt_host: "\x1b[1;37m".to_string(),      // White
-            prompt_dir: "\x1b[1;35m".to_string(),       // Magenta
-            prompt_symbol: "\x1b[0m".to_string(),        // Reset
+            prompt_user: "\x1b[1;38m".to_string(), // Bright white
+            prompt_host: "\x1b[1;37m".to_string(), // White
+            prompt_dir: "\x1b[1;35m".to_string(),  // Magenta
+            prompt_symbol: "\x1b[0m".to_string(),  // Reset
             error_color: "\x1b[31m".to_string(),
             warning_color: "\x1b[33m".to_string(),
             success_color: "\x1b[32m".to_string(),
@@ -51,10 +51,10 @@ impl Theme {
     pub fn light_theme() -> Self {
         Theme {
             name: "light".to_string(),
-            prompt_user: "\x1b[1;34m".to_string(),      // Blue
-            prompt_host: "\x1b[1;32m".to_string(),      // Green
-            prompt_dir: "\x1b[1;36m".to_string(),       // Cyan
-            prompt_symbol: "\x1b[0m".to_string(),        // Reset
+            prompt_user: "\x1b[1;34m".to_string(), // Blue
+            prompt_host: "\x1b[1;32m".to_string(), // Green
+            prompt_dir: "\x1b[1;36m".to_string(),  // Cyan
+            prompt_symbol: "\x1b[0m".to_string(),  // Reset
             error_color: "\x1b[31m".to_string(),
             warning_color: "\x1b[33m".to_string(),
             success_color: "\x1b[32m".to_string(),
@@ -65,13 +65,13 @@ impl Theme {
     pub fn colorful_theme() -> Self {
         Theme {
             name: "colorful".to_string(),
-            prompt_user: "\x1b[1;95m".to_string(),      // Bright magenta
-            prompt_host: "\x1b[1;93m".to_string(),      // Bright yellow
-            prompt_dir: "\x1b[1;96m".to_string(),       // Bright cyan
-            prompt_symbol: "\x1b[0m".to_string(),        // Reset
-            error_color: "\x1b[91m".to_string(),        // Bright red
-            warning_color: "\x1b[93m".to_string(),      // Bright yellow
-            success_color: "\x1b[92m".to_string(),      // Bright green
+            prompt_user: "\x1b[1;95m".to_string(), // Bright magenta
+            prompt_host: "\x1b[1;93m".to_string(), // Bright yellow
+            prompt_dir: "\x1b[1;96m".to_string(),  // Bright cyan
+            prompt_symbol: "\x1b[0m".to_string(),  // Reset
+            error_color: "\x1b[91m".to_string(),   // Bright red
+            warning_color: "\x1b[93m".to_string(), // Bright yellow
+            success_color: "\x1b[92m".to_string(), // Bright green
         }
     }
 
@@ -93,13 +93,13 @@ impl Theme {
     pub fn cyberpunk_theme() -> Self {
         Theme {
             name: "cyberpunk".to_string(),
-            prompt_user: "\x1b[1;35m".to_string(),      // Magenta
-            prompt_host: "\x1b[1;95m".to_string(),      // Bright magenta
-            prompt_dir: "\x1b[1;36m".to_string(),       // Cyan
-            prompt_symbol: "\x1b[0m".to_string(),        // Reset
-            error_color: "\x1b[91m".to_string(),        // Bright red
-            warning_color: "\x1b[93m".to_string(),      // Bright yellow
-            success_color: "\x1b[95m".to_string(),      // Bright magenta
+            prompt_user: "\x1b[1;35m".to_string(), // Magenta
+            prompt_host: "\x1b[1;95m".to_string(), // Bright magenta
+            prompt_dir: "\x1b[1;36m".to_string(),  // Cyan
+            prompt_symbol: "\x1b[0m".to_string(),  // Reset
+            error_color: "\x1b[91m".to_string(),   // Bright red
+            warning_color: "\x1b[93m".to_string(), // Bright yellow
+            success_color: "\x1b[95m".to_string(), // Bright magenta
         }
     }
 
@@ -107,13 +107,13 @@ impl Theme {
     pub fn ocean_theme() -> Self {
         Theme {
             name: "ocean".to_string(),
-            prompt_user: "\x1b[1;34m".to_string(),      // Blue
-            prompt_host: "\x1b[1;36m".to_string(),      // Cyan
-            prompt_dir: "\x1b[1;94m".to_string(),       // Bright blue
-            prompt_symbol: "\x1b[0m".to_string(),        // Reset
+            prompt_user: "\x1b[1;34m".to_string(), // Blue
+            prompt_host: "\x1b[1;36m".to_string(), // Cyan
+            prompt_dir: "\x1b[1;94m".to_string(),  // Bright blue
+            prompt_symbol: "\x1b[0m".to_string(),  // Reset
             error_color: "\x1b[31m".to_string(),
             warning_color: "\x1b[33m".to_string(),
-            success_color: "\x1b[36m".to_string(),      // Cyan
+            success_color: "\x1b[36m".to_string(), // Cyan
         }
     }
 
@@ -121,13 +121,13 @@ impl Theme {
     pub fn forest_theme() -> Self {
         Theme {
             name: "forest".to_string(),
-            prompt_user: "\x1b[1;32m".to_string(),      // Green
-            prompt_host: "\x1b[1;92m".to_string(),      // Bright green
-            prompt_dir: "\x1b[1;33m".to_string(),       // Yellow
-            prompt_symbol: "\x1b[0m".to_string(),        // Reset
+            prompt_user: "\x1b[1;32m".to_string(), // Green
+            prompt_host: "\x1b[1;92m".to_string(), // Bright green
+            prompt_dir: "\x1b[1;33m".to_string(),  // Yellow
+            prompt_symbol: "\x1b[0m".to_string(),  // Reset
             error_color: "\x1b[31m".to_string(),
-            warning_color: "\x1b[93m".to_string(),      // Bright yellow
-            success_color: "\x1b[92m".to_string(),      // Bright green
+            warning_color: "\x1b[93m".to_string(), // Bright yellow
+            success_color: "\x1b[92m".to_string(), // Bright green
         }
     }
 
@@ -164,9 +164,14 @@ impl Theme {
     pub fn generate_prompt(&self, user: &str, host: &str, dir: &str, symbol: &str) -> String {
         format!(
             "{}{}{}@{}{} {}{}{}{}",
-            self.prompt_user, user, self.prompt_symbol,
-            self.prompt_host, host,
-            self.prompt_dir, dir, self.prompt_symbol,
+            self.prompt_user,
+            user,
+            self.prompt_symbol,
+            self.prompt_host,
+            host,
+            self.prompt_dir,
+            dir,
+            self.prompt_symbol,
             symbol
         )
     }
