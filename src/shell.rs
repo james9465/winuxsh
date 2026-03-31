@@ -1,4 +1,5 @@
 use colored::Colorize;
+use log::debug;
 use reedline::{
     default_emacs_keybindings, ColumnarMenu, DefaultCompleter, DefaultPrompt, DefaultPromptSegment,
     Emacs, FileBackedHistory, KeyCode, KeyModifiers, MenuBuilder, Reedline, ReedlineEvent,
@@ -20,6 +21,8 @@ use crate::theme::ThemePlugin;
 use crate::tokenizer::{CommandInfo, ParsedCommand, Tokenizer};
 use glob;
 
+use crate::command_router::CommandClassification;
+
 /// Main shell structure
 pub struct Shell {
     pub current_dir: PathBuf,
@@ -32,6 +35,7 @@ pub struct Shell {
     pub job_manager: JobManager,
     pub theme_plugin: ThemePlugin,
     pub last_exit_code: i32,
+    pub command_router: Option<crate::command_router::CommandRouter>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -213,6 +217,24 @@ impl Shell {
             .with_quick_completions(true)
             .with_partial_completions(true);
 
+        // Load command classification and create router
+        let command_router = match crate::command_router::load_classification() {
+            Ok(classification) => {
+                let router = crate::command_router::CommandRouter::new(classification);
+                println!("{} {}", "✓ Command router initialized".green(),
+                         if router.is_daemon_available() {
+                             "(WinuxCmd daemon available)"
+                         } else {
+                             "(WinuxCmd daemon not available, using PATH fallback)"
+                         });
+                Some(router)
+            }
+            Err(e) => {
+                eprintln!("{} {}", "Warning:".yellow(), format!("Failed to load command classification: {}", e));
+                None
+            }
+        };
+
         let mut shell = Shell {
             current_dir: std::env::current_dir()?,
             aliases: HashMap::new(),
@@ -224,6 +246,7 @@ impl Shell {
             job_manager: JobManager::new(),
             theme_plugin: ThemePlugin::new(),
             last_exit_code: 0,
+            command_router,
         };
 
         // Load default aliases
@@ -538,26 +561,69 @@ impl Shell {
             .chain(expanded_args)
             .collect();
 
-        if self.try_builtin_with_redirection(&clean_command, &all_args, &cmd_clone)? {
-            self.last_exit_code = 0;
-            return Ok(());
-        }
+        // Route command using command_router if available
+        if let Some(router) = &self.command_router {
+            let route_decision = router.route_command(&clean_command);
 
-        // Now check if it's a built-in command with expanded arguments
-        if let Some(result) = self.handle_builtin(&all_args) {
-            match result {
-                Ok(()) => {
-                    self.last_exit_code = 0;
+            match route_decision {
+                crate::command_router::RouteDecision::Builtin => {
+                    // Execute builtin command
+                    if self.try_builtin_with_redirection(&clean_command, &all_args, &cmd_clone)? {
+                        self.last_exit_code = 0;
+                        return Ok(());
+                    }
+
+                    if let Some(result) = self.handle_builtin(&all_args) {
+                        match result {
+                            Ok(()) => {
+                                self.last_exit_code = 0;
+                                return Ok(());
+                            }
+                            Err(e) => {
+                                self.last_exit_code = 1;
+                                eprintln!("{} {}", "Error:".red(), e);
+                                return Ok(());
+                            }
+                        }
+                    }
+                }
+                crate::command_router::RouteDecision::WinuxCmdIPC(category) => {
+                    // Execute via WinuxCmd IPC
+                    let args: Vec<String> = all_args[1..].to_vec();
+                    return self.execute_winuxcmd_command(&clean_command, &args, category, &cmd_clone);
+                }
+                crate::command_router::RouteDecision::ExternalCommand => {
+                    // Execute via PATH (fall through)
+                }
+                crate::command_router::RouteDecision::NotFound => {
+                    self.last_exit_code = 127;
+                    eprintln!("{} {}", "Error:".red(), format!("Command '{}' not found", clean_command));
                     return Ok(());
                 }
-                Err(e) => {
-                    self.last_exit_code = 1;
-                    eprintln!("{} {}", "Error:".red(), e);
-                    return Ok(());
+            }
+        } else {
+            // No router available, use old logic
+            if self.try_builtin_with_redirection(&clean_command, &all_args, &cmd_clone)? {
+                self.last_exit_code = 0;
+                return Ok(());
+            }
+
+            if let Some(result) = self.handle_builtin(&all_args) {
+                match result {
+                    Ok(()) => {
+                        self.last_exit_code = 0;
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        self.last_exit_code = 1;
+                        eprintln!("{} {}", "Error:".red(), e);
+                        return Ok(());
+                    }
                 }
             }
         }
 
+        // Execute external command via PATH
         let args: Vec<String> = all_args[1..].to_vec();
 
         // Convert environment variables to the format expected by Executor
@@ -575,6 +641,140 @@ impl Shell {
         cmd_info.args = all_args;
 
         match executor.execute(&clean_command, &args, &cmd_info) {
+            Ok(exit_code) => {
+                self.last_exit_code = exit_code;
+                Ok(())
+            }
+            Err(e) => {
+                self.last_exit_code = match e {
+                    ShellError::CommandNotFound(_) => 127,
+                    _ => 1,
+                };
+                eprintln!("{} {}", "Error:".red(), e);
+                Ok(())
+            }
+        }
+    }
+
+    /// Execute a command via WinuxCmd IPC
+    fn execute_winuxcmd_command(
+        &mut self,
+        command: &str,
+        args: &[String],
+        category: crate::command_router::CommandCategory,
+        cmd_info: &CommandInfo,
+    ) -> Result<()> {
+        use crate::command_router::CommandCategory;
+
+        match category {
+            CommandCategory::Interactive => {
+                self.execute_interactive_winuxcmd(command, args, cmd_info)
+            }
+            CommandCategory::Complex => {
+                self.execute_complex_winuxcmd(command, args, cmd_info)
+            }
+            CommandCategory::Simple => {
+                self.execute_simple_winuxcmd(command, args, cmd_info)
+            }
+            _ => {
+                // Should not reach here, but fallback to simple
+                self.execute_simple_winuxcmd(command, args, cmd_info)
+            }
+        }
+    }
+
+    /// Execute simple WinuxCmd command via IPC
+    fn execute_simple_winuxcmd(
+        &mut self,
+        command: &str,
+        args: &[String],
+        cmd_info: &CommandInfo,
+    ) -> Result<()> {
+        use crate::winuxcmd_ffi::WinuxCmdFFI;
+
+        debug!("Executing via WinuxCmd IPC: {} {:?}", command, args);
+
+        match WinuxCmdFFI::execute(command, args) {
+            Ok(response) => {
+                // Print output
+                if !response.stdout.is_empty() {
+                    print!("{}", response.stdout);
+                }
+                if !response.stderr.is_empty() {
+                    eprint!("{}", response.stderr);
+                }
+
+                self.last_exit_code = response.exit_code;
+
+                if response.exit_code != 0 {
+                    eprintln!("Command exited with status code: {}", response.exit_code);
+                }
+
+                Ok(())
+            }
+            Err(e) => {
+                // IPC failed, fall back to external command
+                eprintln!("{} {}", "Warning:".yellow(), format!("WinuxCmd IPC failed: {}", e));
+                eprintln!("Falling back to external command execution");
+                self.execute_external_command_fallback(command, args, cmd_info)
+            }
+        }
+    }
+
+    /// Execute interactive WinuxCmd command via IPC
+    fn execute_interactive_winuxcmd(
+        &mut self,
+        command: &str,
+        args: &[String],
+        cmd_info: &CommandInfo,
+    ) -> Result<()> {
+        // Interactive commands (less, top) need special TTY handling
+        // For now, use simple execution but be aware of TTY requirements
+        eprintln!("{} {}", "Info:".blue(), format!("Executing interactive command '{}' via IPC", command));
+        self.execute_simple_winuxcmd(command, args, cmd_info)
+    }
+
+    /// Execute complex WinuxCmd command via IPC
+    fn execute_complex_winuxcmd(
+        &mut self,
+        command: &str,
+        args: &[String],
+        cmd_info: &CommandInfo,
+    ) -> Result<()> {
+        // Complex commands (sed, xargs) might need special parsing
+        // For now, use simple execution
+        self.execute_simple_winuxcmd(command, args, cmd_info)
+    }
+
+    /// Execute command via external PATH as fallback
+    fn execute_external_command_fallback(
+        &mut self,
+        command: &str,
+        args: &[String],
+        cmd_info: &CommandInfo,
+    ) -> Result<()> {
+        debug!("Executing via PATH: {} {:?}", command, args);
+
+        // Convert environment variables to the format expected by Executor
+        let env_vars: Vec<(String, ArrayValue)> = self
+            .env_vars
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
+        // Create executor
+        let executor = Executor::new(&env_vars, &self.current_dir);
+
+        // Create modified command info with proper args
+        let mut cmd_info_clone = cmd_info.clone();
+        cmd_info_clone.args = vec![command.to_string()]
+            .into_iter()
+            .chain(args.iter().cloned())
+            .collect();
+
+        // Execute the external command
+        let actual_args: Vec<String> = args.to_vec();
+        match executor.execute(command, &actual_args, &cmd_info_clone) {
             Ok(exit_code) => {
                 self.last_exit_code = exit_code;
                 Ok(())

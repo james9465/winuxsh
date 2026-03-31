@@ -15,6 +15,7 @@ use std::path::PathBuf;
 
 mod array;
 mod builtins;
+mod command_router;
 mod config;
 mod error;
 mod executor;
@@ -48,7 +49,8 @@ fn main() {
 fn run() -> Result<()> {
     // Initialize logging (default to error level only)
     env_logger::Builder::new()
-        .filter_level(log::LevelFilter::Error)
+        .filter_level(log::LevelFilter::Error)  // 默认只显示error
+        .parse_env("RUST_LOG")  // 但允许通过RUST_LOG环境变量覆盖
         .init();
 
     // Initialize WinuxCmd daemon
@@ -179,34 +181,50 @@ fn initialize_winuxcmd_daemon() -> anyhow::Result<()> {
 
     println!("{}", "✗ WinuxCmd daemon is not available, starting it...".yellow());
 
-    // Start daemon process
-    let daemon_exe = std::path::PathBuf::from("utils/winuxcmd/winuxcmd.exe");
-    if !daemon_exe.exists() {
-        return Err(anyhow::anyhow!("WinuxCmd executable not found at: {:?}", daemon_exe));
-    }
+    // Find daemon executable in multiple locations
+    let possible_paths = vec![
+        std::path::PathBuf::from("utils/winuxcmd/winuxcmd.exe"),
+        std::path::PathBuf::from("./winuxcmd.exe"),
+        std::path::PathBuf::from("../utils/winuxcmd/winuxcmd.exe"),
+    ];
 
+    let daemon_exe = possible_paths
+        .into_iter()
+        .find(|path| path.exists())
+        .ok_or_else(|| anyhow::anyhow!("WinuxCmd executable not found in any standard location"))?;
+
+    println!("{} {}", "Starting daemon from:".blue(), daemon_exe.display());
+
+    // Start daemon as background process
+    // Use detached process so it continues running when shell exits
     let mut daemon_cmd = std::process::Command::new(&daemon_exe);
     daemon_cmd.arg("--daemon");
-    daemon_cmd.stdout(std::process::Stdio::piped());
-    daemon_cmd.stderr(std::process::Stdio::piped());
+    daemon_cmd.stdout(std::process::Stdio::null());  // Discard stdout
+    daemon_cmd.stderr(std::process::Stdio::null());  // Discard stderr
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        daemon_cmd.creation_flags(0x00000008);  // DETACHED_PROCESS
+    }
 
-    let mut child = daemon_cmd.spawn()
+    let _child = daemon_cmd.spawn()
         .map_err(|e| anyhow::anyhow!("Failed to start daemon: {}", e))?;
 
+    println!("{} {}", "Waiting for daemon to start...".blue(), "(timeout: 5s)");
+
     // Wait for daemon to start (give it 5 seconds)
-    for i in 0..50 {
+    let timeout = std::time::Duration::from_secs(5);
+    let start = std::time::Instant::now();
+
+    while start.elapsed() < timeout {
         std::thread::sleep(std::time::Duration::from_millis(100));
         if WinuxCmdFFI::is_available() {
-            println!("{}", "✓ WinuxCmd daemon started successfully".green());
+            let elapsed = start.elapsed().as_millis();
+            println!("{} {} ({:.0}ms)", "✓ WinuxCmd daemon started successfully".green(), 
+                     "ready in", elapsed);
             return Ok(());
         }
     }
 
-    // If daemon still not available, check child process status
-    let status = child.try_wait()?;
-    if let Some(exit_status) = status {
-        return Err(anyhow::anyhow!("Daemon exited with status: {:?}", exit_status));
-    }
-
-    Err(anyhow::anyhow!("Daemon failed to start within timeout"))
+    Err(anyhow::anyhow!("Daemon failed to start within 5 second timeout"))
 }
