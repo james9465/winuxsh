@@ -1,4 +1,4 @@
-// Path completion for WinSH
+﻿// Path completion for WinSH
 // Provides Tab completion for files and directories
 
 use std::path::{Path, PathBuf};
@@ -17,37 +17,78 @@ impl PathCompleter {
             None => return Ok(None),
         };
 
+        // Handle empty word (just complete current directory)
+        if word.is_empty() {
+            return Self::complete_directory(&context.current_dir, "", false);
+        }
+
         // Determine base directory and prefix
-        let (base_dir, prefix) = if word.starts_with('/') || word.starts_with('\\') {
+        let (base_dir, prefix, add_trailing_slash) = if word.starts_with('/') || word.starts_with('\\') {
             // Absolute path
-            (PathBuf::from("/"), word[1..].to_string())
+            let word_clone = word.clone();
+            let path = if word.starts_with('\\') { 
+                // Windows UNC path
+                PathBuf::from(&word_clone)
+            } else {
+                // Unix-style absolute path (convert to Windows)
+                PathBuf::from(&word_clone)
+            };
+            
+            if let Some(parent) = path.parent() {
+                let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                (parent.to_path_buf(), file_name.to_string(), false)
+            } else {
+                (PathBuf::from("/"), word[1..].to_string(), false)
+            }
+        } else if word.ends_with('/') || word.ends_with('\\') {
+            // Path ends with separator - complete directory contents
+            let dir_part = &word[..word.len().saturating_sub(1)];
+            let base_dir = context.current_dir.join(dir_part);
+            (base_dir, String::new(), false)
         } else if word.contains('/') || word.contains('\\') {
             // Relative path with directory separator
             let last_sep = word.rfind(|c: char| c == '/' || c == '\\').unwrap();
             let dir_part = &word[..last_sep];
             let prefix_part = &word[last_sep + 1..];
-            (context.current_dir.join(dir_part), prefix_part.to_string())
+            (context.current_dir.join(dir_part), prefix_part.to_string(), false)
         } else if word.starts_with('.') {
-            // Current directory
-            (context.current_dir.clone(), word[1..].to_string())
+            // Current directory reference
+            if word == "." || word == "./" {
+                (context.current_dir.clone(), String::new(), false)
+            } else if word.starts_with("./") {
+                (context.current_dir.clone(), word[2..].to_string(), false)
+            } else {
+                (context.current_dir.clone(), word[1..].to_string(), false)
+            }
         } else {
             // No path separator, assume current directory
-            (context.current_dir.clone(), word.clone())
+            (context.current_dir.clone(), word.clone(), false)
         };
 
-        // Try to read directory
-        let entries = match fs::read_dir(&base_dir) {
+        // Normalize base path
+        let base_dir = Self::normalize_path(&base_dir);
+        
+        // Check if base directory exists
+        if !base_dir.exists() || !base_dir.is_dir() {
+            return Ok(None);
+        }
+
+        Self::complete_directory(&base_dir, &prefix, add_trailing_slash)
+    }
+
+    /// Complete entries in a directory
+    fn complete_directory(base_dir: &Path, prefix: &str, add_trailing_slash: bool) -> Result<Option<CompletionResult>> {
+        let entries = match fs::read_dir(base_dir) {
             Ok(entries) => entries,
             Err(_) => return Ok(None),
         };
 
-        // Filter and collect matches
         let mut completions: Vec<String> = Vec::new();
 
         for entry in entries.flatten() {
             let file_name = entry.file_name().to_string_lossy().to_string();
 
-            // Check if matches prefix
+            // Check if matches prefix (case-insensitive)
             if file_name.to_lowercase().starts_with(&prefix.to_lowercase()) {
                 let file_type = match entry.file_type() {
                     Ok(ft) => ft,
@@ -65,14 +106,6 @@ impl PathCompleter {
             }
         }
 
-        // Add ./ prefix if original word started with .
-        if word.starts_with('.') {
-            completions = completions
-                .into_iter()
-                .map(|c| format!("./{}", c))
-                .collect();
-        }
-
         if completions.is_empty() {
             Ok(None)
         } else {
@@ -81,70 +114,12 @@ impl PathCompleter {
         }
     }
 
-    /// Expand tilde (~) to home directory
-    pub fn expand_tilde(path: &str) -> String {
-        if path.starts_with("~/") {
-            if let Some(home) = dirs::home_dir() {
-                return path.replacen('~', &home.to_string_lossy(), 1);
-            }
-        }
-        path.to_string()
-    }
-
-    /// Get directory completion suggestions
-    pub fn get_directories(base_dir: &Path) -> Vec<String> {
-        let mut dirs = Vec::new();
-
-        if let Ok(entries) = fs::read_dir(base_dir) {
-            for entry in entries.flatten() {
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_dir() {
-                        let dir_name = entry.file_name().to_string_lossy().to_string();
-                        dirs.push(format!("{}/", dir_name));
-                    }
-                }
-            }
-        }
-
-        dirs.sort();
-        dirs
-    }
-
-    /// Get file completion suggestions
-    pub fn get_files(base_dir: &Path) -> Vec<String> {
-        let mut files = Vec::new();
-
-        if let Ok(entries) = fs::read_dir(base_dir) {
-            for entry in entries.flatten() {
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_file() {
-                        let file_name = entry.file_name().to_string_lossy().to_string();
-                        files.push(file_name);
-                    }
-                }
-            }
-        }
-
-        files.sort();
-        files
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_expand_tilde() {
-        let home = dirs::home_dir().unwrap().to_string_lossy().to_string();
-        let expanded = PathCompleter::expand_tilde("~/test");
-        assert!(expanded.starts_with(&home));
-        assert!(expanded.ends_with("/test"));
-    }
-
-    #[test]
-    fn test_expand_tilde_no_tilde() {
-        let result = PathCompleter::expand_tilde("/absolute/path");
-        assert_eq!(result, "/absolute/path");
+    /// Normalize path for Windows/Unix compatibility
+    fn normalize_path(path: &Path) -> PathBuf {
+        let path_str = path.to_string_lossy().to_string();
+        
+        // Convert Unix paths to Windows paths
+        let normalized = path_str.replace('/', "\\");
+        PathBuf::from(normalized)
     }
 }
