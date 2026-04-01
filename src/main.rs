@@ -97,6 +97,7 @@ use std::path::PathBuf;
 mod array;
 mod builtins;
 mod command_router;
+mod completion;
 mod config;
 mod error;
 mod executor;

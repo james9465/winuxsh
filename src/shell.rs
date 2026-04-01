@@ -163,8 +163,12 @@ impl Shell {
         unique_commands.sort();
         unique_commands.dedup();
 
-        // Create completer with all commands
-        let completer = Box::new(DefaultCompleter::new_with_wordlen(unique_commands, 2));
+        // Create custom completer with command, path, and variable completion
+        use crate::completion::WinuxshCompleter;
+        let completer = Box::new(WinuxshCompleter::new(
+            home_dir.clone(),
+            HashMap::new(), // Will be updated later
+        ));
 
         // Create completion menu (exactly like MVP4)
         let completion_menu = Box::new(
