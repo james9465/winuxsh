@@ -259,6 +259,16 @@ impl CommandRouter {
                     return RouteDecision::ExternalCommand;
                 }
                 
+                // Commands with known issues in DLL implementation
+                // Force them to use PATH for better compatibility
+                let force_path_commands = vec![
+                    "top",   // top needs proper TTY handling
+                ];
+                if force_path_commands.iter().any(|&cmd| cmd == command) {
+                    debug!("Force PATH execution for compatibility: {}", command);
+                    return RouteDecision::ExternalCommand;
+                }
+                
                 // Text processing commands that might wait for input
                 // Force them to use PATH for proper Ctrl+C handling
                 let input_waiting_commands = vec![

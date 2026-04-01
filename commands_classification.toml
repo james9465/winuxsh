@@ -6,7 +6,7 @@
 simple = [
     # File operations
     "ls", "cat", "cp", "mv", "rm", "touch", "mkdir", "rmdir", "ln", "link", "unlink",
-    "chmod", "stat", "file", "find", "tree", "du", "df",
+    "chmod", "stat", "file", "find", "du", "df",
     
     # Text processing
     "grep", "head", "tail", "sort", "uniq", "cut", "paste", "join", "comm", "cmp",

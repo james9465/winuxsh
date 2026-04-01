@@ -77,7 +77,13 @@ impl Executor {
         let mut command = Command::new(&actual_program);
         command.args(&actual_args);
 
-        // Handle redirections
+        // Explicitly set stdio to inherit for streaming output
+        // This prevents buffering issues with large outputs like tree
+        command.stdin(Stdio::inherit());
+        command.stdout(Stdio::inherit());
+        command.stderr(Stdio::inherit());
+
+        // Handle redirections - override inherited stdio if specified
         if let Some(ref stdin_file) = cmd_info.stdin_redir {
             let file = std::fs::File::open(stdin_file)?;
             command.stdin(Stdio::from(file));
@@ -131,6 +137,7 @@ impl Executor {
             }
         }
 
+        // Override inherited stdio if redirection is specified
         if let Some(file) = stdout_handle {
             command.stdout(Stdio::from(file));
         }
@@ -206,8 +213,8 @@ impl Executor {
         // Check current directory - prioritize extensions
         let current_dir = self.current_dir.clone();
 
-        // Check for .exe, .bat, .cmd, .ps1 first (with extensions)
-        for ext in &[".exe", ".bat", ".cmd", ".ps1"] {
+        // Check for .exe, .bat, .cmd, .ps1, .com first (with extensions)
+        for ext in &[".exe", ".bat", ".cmd", ".ps1", ".com"] {
             let cmd_with_ext = current_dir.join(format!("{}{}", clean_cmd, ext));
             if cmd_with_ext.exists() {
                 return Ok(Some(cmd_with_ext));
@@ -242,8 +249,8 @@ impl Executor {
             let paths: Vec<_> = env::split_paths(&path_env).collect();
 
             for dir in paths {
-                // Check for .exe, .bat, .cmd, .ps1 first (with extensions)
-                for ext in &[".exe", ".bat", ".cmd", ".ps1"] {
+                // Check for .exe, .bat, .cmd, .ps1, .com first (with extensions)
+                for ext in &[".exe", ".bat", ".cmd", ".ps1", ".com"] {
                     let cmd_with_ext = dir.join(format!("{}{}", clean_cmd, ext));
                     if cmd_with_ext.exists() {
                         return Ok(Some(cmd_with_ext));
