@@ -2,7 +2,7 @@
 # Based on actual 137 WinuxCmd commands from source files
 
 [simple_commands]
-# Simple IPC commands - non-interactive, output-only (131 commands)
+# Simple DLL commands - non-interactive, output-only (131 commands)
 simple = [
     # File operations
     "ls", "cat", "cp", "mv", "rm", "touch", "mkdir", "rmdir", "ln", "link", "unlink",
@@ -65,8 +65,8 @@ builtin = [
 [command_priority]
 # Execution priority (1=highest)
 builtin = 1      # Native WinSH commands
-simple = 2       # Simple IPC commands (most common)
-complex = 3      # Complex IPC commands  
+simple = 2       # Simple DLL commands (most common)
+complex = 3      # Complex DLL commands  
 interactive = 4  # Interactive commands (TTY handling)
 
 # Special handling properties for commands

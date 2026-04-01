@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 /// WinuxCmd configuration
 #[derive(Debug, Clone, Deserialize)]
 pub struct WinuxCmdConfig {
-    #[serde(default = "default_enable_ipc")]
-    pub enable_ipc: bool,
+    #[serde(default = "default_enable_dll")]
+    pub enable_dll: bool,
 
     #[serde(default = "default_auto_start_daemon")]
     pub auto_start_daemon: bool,
@@ -19,14 +19,14 @@ pub struct WinuxCmdConfig {
 impl Default for WinuxCmdConfig {
     fn default() -> Self {
         WinuxCmdConfig {
-            enable_ipc: true,
+            enable_dll: true,
             auto_start_daemon: true,
             daemon_timeout: 5,
         }
     }
 }
 
-fn default_enable_ipc() -> bool {
+fn default_enable_dll() -> bool {
     true
 }
 
@@ -260,7 +260,7 @@ mod tests {
         let config = ShellConfig::default();
         assert_eq!(config.prompt_format, "%u@%h %w $ ");
         assert_eq!(config.plugins.len(), 0);
-        assert!(config.winuxcmd.enable_ipc);
+        assert!(config.winuxcmd.enable_dll);
         assert!(config.winuxcmd.auto_start_daemon);
         assert_eq!(config.winuxcmd.daemon_timeout, 5);
     }
@@ -284,7 +284,7 @@ mod tests {
     #[test]
     fn test_winuxcmd_default() {
         let config = WinuxCmdConfig::default();
-        assert!(config.enable_ipc);
+        assert!(config.enable_dll);
         assert!(config.auto_start_daemon);
         assert_eq!(config.daemon_timeout, 5);
     }

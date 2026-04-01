@@ -203,7 +203,7 @@ pub enum RouteDecision {
     /// Native WinSH builtin command (highest priority)
     Builtin,
     /// Execute via WinuxCmd DLL
-    WinuxCmdIPC(CommandCategory),
+    WinuxCmdDLL(CommandCategory),
     /// Execute via PATH as external command
     ExternalCommand,
     /// Command not found
@@ -214,13 +214,13 @@ pub enum RouteDecision {
 pub struct CommandRouter {
     classification: CommandClassification,
     ffi_available: bool,
-    enable_ipc: bool,
+    enable_dll: bool,
 }
 
 impl CommandRouter {
     /// Create a new command router
-    pub fn new(classification: CommandClassification, enable_ipc: bool) -> Self {
-        let ffi_available = if enable_ipc {
+    pub fn new(classification: CommandClassification, enable_dll: bool) -> Self {
+        let ffi_available = if enable_dll {
             crate::winuxcmd_ffi::WinuxCmdFFI::is_initialized()
         } else {
             false
@@ -228,7 +228,7 @@ impl CommandRouter {
         Self {
             classification,
             ffi_available,
-            enable_ipc,
+            enable_dll,
         }
     }
 
@@ -251,7 +251,7 @@ impl CommandRouter {
 
         // 2. Check WinuxCmd DLL (if FFI available AND enabled)
         // But force certain commands to use PATH for better signal handling
-        if self.enable_ipc && self.ffi_available {
+        if self.enable_dll && self.ffi_available {
             if let Some(category) = self.classification.classify(command) {
                 // Interactive commands need TTY support, use PATH execution
                 if category == CommandCategory::Interactive {
@@ -271,7 +271,7 @@ impl CommandRouter {
                 }
                 
                 debug!("Route to WinuxCmd DLL: {}", command);
-                return RouteDecision::WinuxCmdIPC(category);
+                return RouteDecision::WinuxCmdDLL(category);
             }
         }
 
@@ -295,9 +295,9 @@ impl CommandRouter {
         &self.classification
     }
 
-    /// Set IPC enable/disable status
-    pub fn set_enable_ipc(&mut self, enable: bool) {
-        self.enable_ipc = enable;
+    /// Set DLL enable/disable status
+    pub fn set_enable_dll(&mut self, enable: bool) {
+        self.enable_dll = enable;
         if enable {
             self.ffi_available = crate::winuxcmd_ffi::WinuxCmdFFI::is_initialized();
         } else {
@@ -305,9 +305,9 @@ impl CommandRouter {
         }
     }
 
-    /// Check if IPC is enabled
-    pub fn is_ipc_enabled(&self) -> bool {
-        self.enable_ipc
+    /// Check if DLL is enabled
+    pub fn is_dll_enabled(&self) -> bool {
+        self.enable_dll
     }
 }
 
@@ -318,7 +318,7 @@ mod router_tests {
     #[test]
     fn test_router_creation() {
         let classification = load_classification().unwrap();
-        let router = CommandRouter::new(classification);
+        let router = CommandRouter::new(classification, true);
         // Just test creation works
         assert_eq!(router.classification().priority.builtin, 1);
     }
@@ -326,7 +326,7 @@ mod router_tests {
     #[test]
     fn test_route_builtin() {
         let classification = load_classification().unwrap();
-        let router = CommandRouter::new(classification);
+        let router = CommandRouter::new(classification, true);
         
         assert_eq!(
             router.route_command("cd"),
@@ -345,16 +345,16 @@ mod router_tests {
     #[test]
     fn test_route_winuxcmd_simple() {
         let classification = load_classification().unwrap();
-        let router = CommandRouter::new(classification);
+        let router = CommandRouter::new(classification, true);
         
         if router.is_ffi_available() {
             assert_eq!(
                 router.route_command("ls"),
-                RouteDecision::WinuxCmdIPC(CommandCategory::Simple)
+                RouteDecision::WinuxCmdDLL(CommandCategory::Simple)
             );
             assert_eq!(
                 router.route_command("grep"),
-                RouteDecision::WinuxCmdIPC(CommandCategory::Simple)
+                RouteDecision::WinuxCmdDLL(CommandCategory::Simple)
             );
         } else {
             // Fallback to external if daemon not available
@@ -368,16 +368,16 @@ mod router_tests {
     #[test]
     fn test_route_winuxcmd_interactive() {
         let classification = load_classification().unwrap();
-        let router = CommandRouter::new(classification);
+        let router = CommandRouter::new(classification, true);
         
         if router.is_ffi_available() {
             assert_eq!(
                 router.route_command("less"),
-                RouteDecision::WinuxCmdIPC(CommandCategory::Interactive)
+                RouteDecision::WinuxCmdDLL(CommandCategory::Interactive)
             );
             assert_eq!(
                 router.route_command("top"),
-                RouteDecision::WinuxCmdIPC(CommandCategory::Interactive)
+                RouteDecision::WinuxCmdDLL(CommandCategory::Interactive)
             );
         }
     }
@@ -385,16 +385,16 @@ mod router_tests {
     #[test]
     fn test_route_winuxcmd_complex() {
         let classification = load_classification().unwrap();
-        let router = CommandRouter::new(classification);
+        let router = CommandRouter::new(classification, true);
         
         if router.is_ffi_available() {
             assert_eq!(
                 router.route_command("sed"),
-                RouteDecision::WinuxCmdIPC(CommandCategory::Complex)
+                RouteDecision::WinuxCmdDLL(CommandCategory::Complex)
             );
             assert_eq!(
                 router.route_command("xargs"),
-                RouteDecision::WinuxCmdIPC(CommandCategory::Complex)
+                RouteDecision::WinuxCmdDLL(CommandCategory::Complex)
             );
         }
     }
@@ -402,7 +402,7 @@ mod router_tests {
     #[test]
     fn test_route_external() {
         let classification = load_classification().unwrap();
-        let router = CommandRouter::new(classification);
+        let router = CommandRouter::new(classification, true);
         
         // Commands not in classification should route to external
         assert_eq!(
@@ -418,7 +418,7 @@ mod router_tests {
     #[test]
     fn test_route_with_path() {
         let classification = load_classification().unwrap();
-        let router = CommandRouter::new(classification);
+        let router = CommandRouter::new(classification, true);
         
         // Commands with path separators should use external execution
         assert_eq!(

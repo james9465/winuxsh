@@ -308,8 +308,8 @@ impl Shell {
             } else {
                 // Update command_router with config settings
                 if let Some(router) = &mut shell.command_router {
-                    let enable_ipc = shell.config.winuxcmd.enable_ipc;
-                    router.set_enable_ipc(enable_ipc);
+                    let enable_dll = shell.config.winuxcmd.enable_dll;
+                    router.set_enable_dll(enable_dll);
                 }
             }
         }
@@ -608,7 +608,7 @@ impl Shell {
                         }
                     }
                 }
-                crate::command_router::RouteDecision::WinuxCmdIPC(category) => {
+                crate::command_router::RouteDecision::WinuxCmdDLL(category) => {
                     // Execute via WinuxCmd DLL
                     let args: Vec<String> = all_args[1..].to_vec();
                     return self.execute_winuxcmd_command(&clean_command, &args, &cmd_clone);

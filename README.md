@@ -243,35 +243,35 @@ cargo clippy
 
 ## Performance
 
-WinSH features intelligent command routing with WinuxCmd IPC daemon integration for optimal performance.
+WinSH features intelligent command routing with WinuxCmd DLL integration for optimal performance.
 
 ### Command Routing Priority
 
 Commands are routed based on priority:
 1. **Built-in Commands** - Native WinSH commands (fastest)
-2. **WinuxCmd IPC** - Unix tools via IPC daemon (very fast)
+2. **WinuxCmd DLL** - Unix tools via DLL (very fast)
 3. **PATH Execution** - External executables (standard performance)
 
 ### Performance Benchmarks
 
-Testing results comparing WinuxCmd IPC vs PATH execution:
+Testing results comparing WinuxCmd DLL vs PATH execution:
 
 **Single Execution (with shell startup overhead):**
-- WinuxCmd IPC: 28.4ms
+- WinuxCmd DLL: 28.4ms
 - PATH Execution: 55.3ms
-- **IPC Speedup: 49% faster**
+- **DLL Speedup: 49% faster**
 
 **Batch Execution (10 commands):**
-- WinuxCmd IPC: 4.6ms per command
+- WinuxCmd DLL: 4.6ms per command
 - PATH Execution: 31.7ms per command
-- **IPC Speedup: ~7x faster**
+- **DLL Speedup: ~7x faster**
 
 ### Performance Advantages
 
-- **Daemon Reuse**: WinuxCmd daemon runs continuously, avoiding process creation overhead
-- **Efficient IPC**: Named pipe communication minimizes overhead
+- **DLL Integration**: Direct DLL calls avoid process creation overhead
+- **Efficient FFI**: Foreign function interface minimizes overhead
 - **Smart Routing**: Automatic command classification ensures optimal execution path
-- **Memory Efficiency**: Shared daemon reduces memory usage
+- **Memory Efficiency**: Shared DLL reduces memory usage
 
 ### Daemon Management
 
