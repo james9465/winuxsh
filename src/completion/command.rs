@@ -98,10 +98,8 @@ impl CommandCompleter {
             None => return Ok(None),
         };
 
-        // Check if this looks like a command (first word or after |)
-        let is_command_position = Self::is_command_position(&context.input, context.cursor_pos);
-        
-        if !is_command_position {
+        // Only complete if we're at a command position
+        if !context.is_command_position() {
             return Ok(None);
         }
 
@@ -118,30 +116,6 @@ impl CommandCompleter {
             Ok(None)
         } else {
             Ok(Some(CompletionResult::new(matches)))
-        }
-    }
-
-    /// Check if cursor is at a command position
-    fn is_command_position(input: &str, cursor_pos: usize) -> bool {
-        let before_cursor = &input[..cursor_pos];
-
-        // Check if we're at the beginning
-        if before_cursor.trim().is_empty() {
-            return true;
-        }
-
-        // Check if previous character is a command separator
-        let last_sep = before_cursor
-            .rfind(|c: char| c == ';' || c == '|' || c == '&' || c == '\n');
-        
-        if let Some(pos) = last_sep {
-            // Check if there's only whitespace after the separator
-            let after_sep = &before_cursor[pos + 1..];
-            after_sep.trim().is_empty()
-        } else {
-            // No separator found, check if we're at the start
-            let trimmed = before_cursor.trim_start();
-            trimmed.is_empty() || trimmed.chars().next().map(|c| !c.is_whitespace()).unwrap_or(false)
         }
     }
 

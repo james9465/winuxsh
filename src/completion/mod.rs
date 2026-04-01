@@ -46,10 +46,44 @@ impl CompletionContext {
         }
     }
 
-    /// Check if current word is a path (contains / or \)
+    /// Check if cursor is at command position (first word or after separator)
+    pub fn is_command_position(&self) -> bool {
+        let before_cursor = &self.input[..self.cursor_pos];
+        
+        // Check if we're at the beginning
+        if before_cursor.trim().is_empty() {
+            return true;
+        }
+
+        // Check if previous character is a command separator
+        let last_sep = before_cursor
+            .rfind(|c: char| c == ';' || c == '|' || c == '&' || c == '\n');
+        
+        if let Some(pos) = last_sep {
+            // Check if there's only whitespace after the separator
+            let after_sep = &before_cursor[pos + 1..];
+            after_sep.trim().is_empty()
+        } else {
+            // No separator found, check if we're at the start
+            let trimmed = before_cursor.trim_start();
+            trimmed.is_empty()
+        }
+    }
+
+    /// Check if current word is a path (contains / or \ or starts with .)
     pub fn is_path_completion(&self) -> bool {
         if let Some(word) = self.get_current_word() {
-            word.contains('/') || word.contains('\\') || word.starts_with('.')
+            // Explicit path indicators
+            if word.contains('/') || word.contains('\\') || word.starts_with('.') {
+                return true;
+            }
+            
+            // If not at command position, treat as path
+            if !self.is_command_position() {
+                return true;
+            }
+            
+            false
         } else {
             false
         }
