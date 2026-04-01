@@ -165,9 +165,10 @@ impl Shell {
         unique_commands.sort();
         unique_commands.dedup();
 
-        // Create shared completion state
+        // Create shared completion state with current directory
+        let current_dir = std::env::current_dir()?;
         let completion_state = std::sync::Arc::new(std::sync::Mutex::new(
-            crate::completion::CompletionState::new(home_dir.clone())
+            crate::completion::CompletionState::new(current_dir.clone())
         ));
 
         // Create custom completer with shared state
@@ -381,7 +382,7 @@ impl Shell {
     }
 
     /// Update completion state
-    fn update_completion_state(&self) {
+    pub fn update_completion_state(&self) {
         use crate::completion::WinuxshCompleter;
         
         // Get completer reference from line_editor

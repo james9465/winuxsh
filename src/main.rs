@@ -228,6 +228,9 @@ impl Shell {
                     if let Err(e) = self.execute_command(line) {
                         eprintln!("{} {}", "Error:".red(), e);
                     }
+
+                    // Update completion state with current directory after command execution
+                    self.update_completion_state();
                 }
                 Ok(Signal::CtrlD) => {
                     println!();

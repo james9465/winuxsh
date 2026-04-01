@@ -159,10 +159,7 @@ impl Executor {
             {
                 // Use multiple flags for better signal isolation
                 const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
-                const CREATE_NO_WINDOW: u32 = 0x08000000;
-                const DETACHED_PROCESS: u32 = 0x00000008;
-                
-                command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
+                command.creation_flags(CREATE_NEW_PROCESS_GROUP);
             }
 
             // Use spawn() instead of status() for better signal handling
