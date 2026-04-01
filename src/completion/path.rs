@@ -77,7 +77,7 @@ impl PathCompleter {
     }
 
     /// Complete entries in a directory
-    fn complete_directory(base_dir: &Path, prefix: &str, add_trailing_slash: bool) -> Result<Option<CompletionResult>> {
+    fn complete_directory(base_dir: &Path, prefix: &str, _add_trailing_slash: bool) -> Result<Option<CompletionResult>> {
         let entries = match fs::read_dir(base_dir) {
             Ok(entries) => entries,
             Err(_) => return Ok(None),

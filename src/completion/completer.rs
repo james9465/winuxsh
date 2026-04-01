@@ -1,4 +1,4 @@
-// Custom completer for WinSH
+﻿// Custom completer for WinSH
 // Integrates command, path, and variable completion
 
 use std::path::PathBuf;
@@ -82,14 +82,29 @@ impl WinuxshCompleter {
         let completions = result.completions;
 
         // Calculate span for the word being completed
+        // Find the start of the current word
         let word_start = input[..cursor_pos]
             .rfind(|c: char| c.is_whitespace() || c == ';' || c == '|' || c == '&')
             .map(|pos| pos + 1)
             .unwrap_or(0);
 
-        let span = Span {
-            start: word_start,
-            end: cursor_pos,
+        // For path completion, we need to handle path separators correctly
+        // Only replace the part after the last path separator
+        let before_cursor = &input[..cursor_pos];
+        let last_path_sep = before_cursor.rfind(|c: char| c == '/' || c == '\\');
+        
+        let span = if let Some(sep_pos) = last_path_sep {
+            // For paths, only replace after the last separator
+            Span {
+                start: sep_pos + 1,
+                end: cursor_pos,
+            }
+        } else {
+            // For commands and variables, replace the whole word
+            Span {
+                start: word_start,
+                end: cursor_pos,
+            }
         };
 
         completions
@@ -115,10 +130,7 @@ mod tests {
 
     #[test]
     fn test_completer_creation() {
-        let completer = WinuxshCompleter::new(
-            PathBuf::from("/home/user"),
-            HashMap::new(),
-        );
-        assert_eq!(completer.current_dir, PathBuf::from("/home/user"));
+        let state = Arc::new(Mutex::new(CompletionState::new(PathBuf::from("/home/user"))));
+        let completer = WinuxshCompleter::new(state);
     }
 }
