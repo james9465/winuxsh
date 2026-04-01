@@ -39,6 +39,8 @@ pub struct Shell {
     pub theme_plugin: ThemePlugin,
     pub last_exit_code: i32,
     pub command_router: Option<crate::command_router::CommandRouter>,
+    // Store completion state reference for updates
+    completion_state: std::sync::Arc<std::sync::Mutex<crate::completion::CompletionState>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -163,11 +165,15 @@ impl Shell {
         unique_commands.sort();
         unique_commands.dedup();
 
-        // Create custom completer with command, path, and variable completion
+        // Create shared completion state
+        let completion_state = std::sync::Arc::new(std::sync::Mutex::new(
+            crate::completion::CompletionState::new(home_dir.clone())
+        ));
+
+        // Create custom completer with shared state
         use crate::completion::WinuxshCompleter;
         let completer = Box::new(WinuxshCompleter::new(
-            home_dir.clone(),
-            HashMap::new(), // Will be updated later
+            completion_state.clone()
         ));
 
         // Create completion menu (exactly like MVP4)
@@ -248,6 +254,7 @@ impl Shell {
             theme_plugin: ThemePlugin::new(),
             last_exit_code: 0,
             command_router,
+            completion_state,
         };
 
         // Load default aliases
@@ -371,6 +378,18 @@ impl Shell {
         }
 
         Ok(())
+    }
+
+    /// Update completion state
+    fn update_completion_state(&self) {
+        use crate::completion::WinuxshCompleter;
+        
+        // Get completer reference from line_editor
+        // Note: This is a simplified approach, in practice you might need a more sophisticated way to access the completer
+        if let Ok(mut state) = self.completion_state.lock() {
+            state.current_dir = self.current_dir.clone();
+            state.env_vars = self.env_vars.clone();
+        }
     }
 
     /// Get environment variable

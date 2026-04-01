@@ -3,42 +3,60 @@
 
 use std::path::PathBuf;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use reedline::{Completer, Span, Suggestion};
 use crate::completion::{CompletionContext, CompletionResult};
 use crate::completion::command::CommandCompleter;
 use crate::completion::path::PathCompleter;
 use crate::completion::variables::VariableCompleter;
 use crate::array::ArrayValue;
-use crate::error::Result;
+
+/// State shared with completer
+#[derive(Clone)]
+pub struct CompletionState {
+    pub current_dir: PathBuf,
+    pub env_vars: HashMap<String, ArrayValue>,
+}
+
+impl CompletionState {
+    pub fn new(current_dir: PathBuf) -> Self {
+        Self {
+            current_dir,
+            env_vars: HashMap::new(),
+        }
+    }
+}
 
 /// Custom completer for WinSH
 pub struct WinuxshCompleter {
-    current_dir: PathBuf,
-    env_vars: HashMap<String, ArrayValue>,
+    state: Arc<Mutex<CompletionState>>,
 }
 
 impl WinuxshCompleter {
-    /// Create a new completer
-    pub fn new(current_dir: PathBuf, env_vars: HashMap<String, ArrayValue>) -> Self {
+    /// Create a new completer with shared state
+    pub fn new(state: Arc<Mutex<CompletionState>>) -> Self {
         Self {
-            current_dir,
-            env_vars,
+            state,
         }
     }
 
-    /// Update current directory
-    pub fn update_current_dir(&mut self, dir: PathBuf) {
-        self.current_dir = dir;
-    }
-
-    /// Update environment variables
-    pub fn update_env_vars(&mut self, vars: HashMap<String, ArrayValue>) {
-        self.env_vars = vars;
+    /// Update state
+    pub fn update_state(&self, current_dir: PathBuf, env_vars: HashMap<String, ArrayValue>) {
+        if let Ok(mut state) = self.state.lock() {
+            state.current_dir = current_dir;
+            state.env_vars = env_vars;
+        }
     }
 
     /// Complete input
     fn complete_input(&mut self, input: &str, cursor_pos: usize) -> Vec<Suggestion> {
-        let context = CompletionContext::new(self.current_dir.clone(), input.to_string(), cursor_pos);
+        let (current_dir, env_vars) = if let Ok(state) = self.state.lock() {
+            (state.current_dir.clone(), state.env_vars.clone())
+        } else {
+            return Vec::new();
+        };
+
+        let context = CompletionContext::new(current_dir.clone(), input.to_string(), cursor_pos);
 
         // Try different completion strategies
         if context.is_path_completion() {
@@ -46,7 +64,7 @@ impl WinuxshCompleter {
                 return self.format_completions(result, input, cursor_pos);
             }
         } else if context.is_variable_completion() {
-            if let Ok(Some(result)) = VariableCompleter::complete(&context, &self.env_vars) {
+            if let Ok(Some(result)) = VariableCompleter::complete(&context, &env_vars) {
                 return self.format_completions(result, input, cursor_pos);
             }
         } else {

@@ -6,7 +6,7 @@ pub mod completer;
 pub mod path;
 pub mod variables;
 
-pub use completer::WinuxshCompleter;
+pub use completer::{WinuxshCompleter, CompletionState};
 
 use std::path::PathBuf;
 
