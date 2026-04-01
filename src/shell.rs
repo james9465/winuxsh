@@ -664,16 +664,85 @@ impl Shell {
 
         debug!("Executing via WinuxCmd DLL: {} {:?}", command, args);
 
+        // Check for stdin redirection - DLL may not support this
+        if cmd_info.stdin_redir.is_some() {
+            log::debug!("Command has stdin redirection, falling back to external execution");
+            return self.execute_external_command_fallback(command, args, cmd_info);
+        }
+
         match WinuxCmdFFI::execute(command, args) {
             Ok(response) => {
-                // Print output as raw bytes to preserve ANSI codes
-                if !response.stdout.is_empty() {
-                    let stdout_str = String::from_utf8_lossy(&response.stdout);
-                    print!("{}", stdout_str);
+                // Handle stdout redirection
+                if let Some(ref stdout_file) = cmd_info.stdout_redir {
+                    // Redirect stdout to file
+                    use std::io::Write;
+                    let mut file = if cmd_info.stdout_append {
+                        std::fs::OpenOptions::new()
+                            .append(true)
+                            .create(true)
+                            .open(stdout_file)?
+                    } else {
+                        std::fs::OpenOptions::new()
+                            .write(true)
+                            .create(true)
+                            .truncate(true)
+                            .open(stdout_file)?
+                    };
+                    if !response.stdout.is_empty() {
+                        file.write_all(&response.stdout)?;
+                    }
+                } else {
+                    // Print output as raw bytes to preserve ANSI codes
+                    if !response.stdout.is_empty() {
+                        let stdout_str = String::from_utf8_lossy(&response.stdout);
+                        print!("{}", stdout_str);
+                    }
                 }
-                if !response.stderr.is_empty() {
-                    let stderr_str = String::from_utf8_lossy(&response.stderr);
-                    eprint!("{}", stderr_str);
+
+                // Handle stderr redirection
+                if let Some(ref stderr_file) = cmd_info.stderr_redir {
+                    // Redirect stderr to file
+                    use std::io::Write;
+                    let mut file = std::fs::OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(stderr_file)?;
+                    if !response.stderr.is_empty() {
+                        file.write_all(&response.stderr)?;
+                    }
+                } else if cmd_info.stderr_to_stdout {
+                    // Redirect stderr to stdout
+                    if let Some(ref stdout_file) = cmd_info.stdout_redir {
+                        use std::io::Write;
+                        let mut file = if cmd_info.stdout_append {
+                            std::fs::OpenOptions::new()
+                                .append(true)
+                                .create(true)
+                                .open(stdout_file)?
+                        } else {
+                            std::fs::OpenOptions::new()
+                                .write(true)
+                                .create(true)
+                                .truncate(true)
+                                .open(stdout_file)?
+                        };
+                        if !response.stderr.is_empty() {
+                            file.write_all(&response.stderr)?;
+                        }
+                    } else {
+                        // Print to stdout
+                        if !response.stderr.is_empty() {
+                            let stderr_str = String::from_utf8_lossy(&response.stderr);
+                            print!("{}", stderr_str);
+                        }
+                    }
+                } else {
+                    // Print stderr to terminal
+                    if !response.stderr.is_empty() {
+                        let stderr_str = String::from_utf8_lossy(&response.stderr);
+                        eprint!("{}", stderr_str);
+                    }
                 }
 
                 self.last_exit_code = response.exit_code;
@@ -750,41 +819,8 @@ impl Shell {
             return self.execute_single_command(&cmds[0]);
         }
 
-        // TEMPORARY FIX: Use temp file as pipe buffer for debugging
-        // This will help us understand if the problem is pipe connection or something else
-        let temp_pipe_file = format!("winuxsh_pipe_{}.tmp", std::process::id());
-        
-        log::debug!("Pipeline: Creating temp file: {}", temp_pipe_file);
-        
-        // Execute first command and redirect output to temp file
-        let mut first_cmd = cmds[0].clone();
-        first_cmd.stdout_redir = Some(temp_pipe_file.clone());
-        first_cmd.stdout_append = false;
-        log::debug!("Pipeline: Executing first command: {:?} -> {}", first_cmd.args, temp_pipe_file);
-        
-        // Use try-catch to prevent any error from killing the shell
-        if let Err(e) = self.execute_single_command(&first_cmd) {
-            log::error!("Pipeline: First command failed: {}", e);
-            // Don't return error, just continue
-        }
-        
-        // Execute remaining commands, reading from temp file
-        for i in 1..cmds.len() {
-            let mut cmd = cmds[i].clone();
-            cmd.stdin_redir = Some(temp_pipe_file.clone());
-            log::debug!("Pipeline: Executing command {}: {:?} < {}", i, cmd.args, temp_pipe_file);
-            
-            if let Err(e) = self.execute_single_command(&cmd) {
-                log::error!("Pipeline: Command {} failed: {}", i, e);
-                // Don't return error, just continue
-            }
-        }
-        
-        // Clean up temp file
-        log::debug!("Pipeline: Cleaning up temp file: {}", temp_pipe_file);
-        let _ = std::fs::remove_file(&temp_pipe_file);
-        
-        Ok(())
+        // Use real pipeline implementation with Windows pipes
+        self.execute_real_pipeline(cmds)
     }
 
     /// Execute a real pipeline with Windows pipes
