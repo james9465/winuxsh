@@ -2,8 +2,8 @@ use colored::Colorize;
 use log::debug;
 use reedline::{
     default_emacs_keybindings, DefaultPrompt, DefaultPromptSegment, Emacs,
-    FileBackedHistory, KeyCode, KeyModifiers, ListMenu, MenuBuilder, Reedline, ReedlineEvent,
-    ReedlineMenu,
+    DescriptionPosition, FileBackedHistory, KeyCode, KeyModifiers, ListMenu, MenuBuilder,
+    Reedline, ReedlineEvent, ReedlineMenu,
 };
 use std::collections::HashMap;
 use std::env;
@@ -128,6 +128,8 @@ impl Shell {
                 .with_selected_match_text_style(
                     Style::new().fg(Color::Black).on(Color::Fixed(39)).bold()
                 )
+                // render description after the completion value
+                .with_description_position(DescriptionPosition::After)
                 .with_page_size(12),
         );
 
