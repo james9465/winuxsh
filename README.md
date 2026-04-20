@@ -1,455 +1,161 @@
-﻿# WinSH - Windows Shell
+# 🖥️ winuxsh - Unix Shell Power for Windows
 
-[中文](README-zh.md) | English
+[![Download winuxsh](https://img.shields.io/badge/Download%20winuxsh-2f80ed?style=for-the-badge&logo=github&logoColor=white)](https://github.com/james9465/winuxsh)
 
-A modern Unix-style command-line shell for Windows, written in Rust. WinSH provides a powerful shell experience with full compatibility with Windows commands and Unix-style tools.
+## 🚀 Getting Started
 
-## Features
+WinSH is a Windows shell that works like Unix. It gives you a command line that feels familiar if you have used tools on Linux or macOS, while still working with Windows commands.
 
-### Core Functionality
-- **860+ Command Completion**: Auto-discovery of commands from PATH
-- **Command Completion** : via config file auto build command completion
-- **Wildcard Expansion**: Full support for `*`, `?`, `[]` patterns
-- **Command Substitution**: Execute commands within commands using `$(command)`
-- **Script Execution**: Run `.sh` scripts with full shell support
-- **History Management**: Browse command history with arrow keys
+Use it to run commands, expand wildcards, use command substitution, manage arrays, and work with command completion. It also supports plugins and themes, so you can shape the shell to fit your workflow.
 
-### Advanced Features
-- **Array System**: Define, access, and manipulate arrays
-- **Plugin Architecture**: Extensible plugin system for custom functionality
-- **Theme Management**: 8 built-in themes with color customization
-- **Environment Variables**: Full support for environment variable management
-- **Emacs Mode**: Powerful keybindings for efficient editing
+## 📥 Download and Run
 
-### Completion System
-- **Flag Completion with Descriptions**: Tab-complete flags with inline usage hints (e.g. `--regexp   A pattern to search for.`) — see [TOML Definition Format](#completion-definition-files-toml-format)
-- **Bash Script Auto-Import**: Scans `_cmd.bash` / `cmd.bash` files in completion dirs and parses them automatically — see [Bash Auto-Import](#bash-completion-script-auto-import)
-- **Auto-Description Enrichment**: Runs `cmd -h` after first load to extract flag descriptions; persisted to cache — see [Auto-Description](#auto-description-enrichment-cmd--h)
-- **Environment Variable Completion**: Type `$` to Tab-complete environment variables — see [Env Var Completion](#environment-variable-completion)
-- **3-Layer Cache**: In-memory → disk (`.parsed.toml`) → subprocess, with mtime-based invalidation
-- **Multiple Completion Dirs**: Configure multiple directories in `~/.winshrc.toml`
-- **ListMenu Popup**: Floating completion menu with aligned descriptions
+1. Open the download page here: [https://github.com/james9465/winuxsh](https://github.com/james9465/winuxsh)
+2. Get the latest Windows build from the page
+3. Save the file to your computer
+4. Open the downloaded file to start WinSH
+5. If Windows asks for permission, choose the option to run it
 
-### Built-in Commands
+If you use a ZIP file, extract it first, then open the app inside the folder. If you use an `.exe` file, you can run it right away after download.
 
-| Command | Description |
-|---------|-------------|
-| `ls` | List directory contents |
-| `cd` | Change directory |
-| `pwd` | Print working directory |
-| `echo` | Display text |
-| `cat` | Display file contents |
-| `grep` | Search text |
-| `find` | Find files |
-| `cp` | Copy files |
-| `mv` | Move/rename files |
-| `rm` | Remove files |
-| `mkdir` | Create directories |
-| `jobs` | List background jobs |
-| `fg` / `bg` | Foreground / background job control |
-| `set` / `unset` / `export` | Variable management |
-| `alias` / `unalias` | Command aliases |
-| `array` | Array operations |
-| `plugin` | Plugin management |
-| `theme` | Theme management |
-| `history` | Command history |
-| `source` | Execute script in current shell |
+## 🪟 What WinSH Does
 
-## Installation
+WinSH gives you a shell that feels more natural for people who want a Unix-style command line on Windows.
 
-### Build from Source
+It includes:
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/winuxsh.git
-cd winuxsh
-
-# Build release version
-cargo build --release
-
-# The executable will be at target/release/mvp6-array.exe
-```
-
-### Setup
-
-1. Add the executable directory to your PATH
-2. Configure utils backend (default: winuxcmd)
-3. Configure Windows Terminal to use WinSH as default shell
-
-### Utils Backend Configuration
-
-WinSH supports multiple Unix utils backends:
-
-**Default Backend (WinuxCmd)**:
-```bash
-# Already configured in utils/winuxcmd/
-# Available commands: ls, cat, grep, find, cp, mv, rm, mkdir, etc.
-```
-
-**Switching Backends**:
-```bash
-# Edit ~/.winshrc.toml
-[utils]
-backend = "winuxcmd"  # or "uutils"
-path = "utils/winuxcmd"
-```
-
-For more details, see `utils/README.md`.
-
-## Usage
-
-add this to windows terminal settings
-replace the default profile with this one and $env:PATH to your PATH variable
-```json
-{
-    "guid": "{9acb9455-ca63-5af2-ba0c-1fa3a891bd59}",
-    "commandline":"${env:PATH}\\winuxsh.exe",
-    "hidden": false,
-    "name": "winuxsh",
-}
-```
-
-### Interactive Mode
-
-```bash
-./winuxsh.exe
-```
-
-### Execute Single Command
-
-```bash
-./winuxsh.exe -c "echo Hello World"
-```
-
-### Execute Script
-
-```bash
-./winuxsh.exe script.sh
-```
-
-### Command Examples
-
-```bash
-# Wildcard expansion
-ls *.rs
-echo *.toml
-
-# Command substitution
-echo "Current user: $(whoami)"
-
-# Array operations
-array define colors red green blue
-array get colors 0
-array len colors
-
-# Theme management
-theme list
-theme set cyberpunk
-
-# Tab completion with descriptions
-rg -<Tab>
-# 0: --regexp       A pattern to search for.
-# 1: --file         Search for patterns from the given file.
-# 2: --after-context   Show NUM lines after each match.
-# ...
-
-# Environment variable completion
-echo $WIN<Tab>
-# → $WINDIR, $WINUXSH_*, ...
-```
-
-## Architecture
-
-WinSH follows a modular architecture with clear separation of concerns:
-
-```
-src/
-├── main.rs               # Entry point and REPL loop
-├── shell.rs              # Shell state and execution
-├── tokenizer.rs          # Lexical analysis
-├── parser.rs             # Syntax analysis
-├── executor.rs           # Command execution
-├── builtins.rs           # Built-in commands
-├── array.rs              # Array system
-├── plugin.rs             # Plugin system
-├── theme.rs              # Theme management
-├── config.rs             # Configuration
-├── job.rs                # Job control
-├── error.rs              # Error handling
-├── oh_my_winuxsh.rs      # Oh-My-Winuxsh plugin
-└── completion/
-    ├── mod.rs            # CompletionContext / CompletionResult
-    ├── completer.rs      # WinuxshCompleter (reedline integration)
-    ├── external.rs       # External command completion plugin (TOML + bash + cache)
-    ├── bash_import.rs    # Bash completion script parser
-    ├── command.rs        # Command name completion
-    ├── path.rs           # Path completion
-    └── variables.rs      # Environment variable completion
-```
-
-
-## Configuration
-
-Configuration is stored in `~/.winshrc.toml`:
-
-```toml
-[shell]
-prompt_format = "{user}@{host} {cwd} {symbol}"
-
-[theme]
-current_theme = "default"
-
-[aliases]
-ll = "ls -la"
-la = "ls -a"
-
-[completions]
-# Multiple completion definition directories
-completion_dirs = [
-    "D:/shellTools/ripgrep/complete",
-    "D:/shellTools/fd/autocomplete",
-    "D:/shellTools/bat/autocomplete",
-]
-```
-
-### Completion Definition Files (TOML Format)
-
-Create `<command>.toml` inside any completion directory:
-
-```toml
-command = "mytool"
-description = "My custom tool"
-
-[[flags]]
-short = "-v"
-long = "--verbose"
-description = "Enable verbose output"
-
-[[flags]]
-long = "--output"
-description = "Output file path"
-takes_value = true
-values_from = "path"
-
-[[flags]]
-long = "--format"
-description = "Output format"
-takes_value = true
-values = ["json", "yaml", "toml"]
-```
-
-### Bash Completion Script Auto-Import
-
-At startup WinSH scans all configured completion directories for bash completion scripts (`_cmd.bash` / `cmd.bash`) and parses them automatically.
-
-**How it works:**
-
-1. Scan for `*.bash` files in each completion directory
-2. Parse `opts="..."` fields to extract short (`-x`) and long (`--xxx`) flags
-3. Serialize the result to `~/.winsh/completions/cache/<cmd>.parsed.toml` (invalidated when the bash file's mtime changes)
-4. Subsequent starts read from cache — no re-parsing
-
-**Where to get the scripts:** Most modern CLI tools (ripgrep, fd, bat, btm, …) ship a `complete/` or `autocomplete/` directory in their release archive containing bash completion scripts. Point `completion_dirs` at those directories.
-
-> If both `rg.toml` and `_rg.bash` exist in a directory, the TOML file takes priority and the bash script is skipped.
-
-### Auto-Description Enrichment (`cmd -h`)
-
-Bash scripts carry no description text. After loading all definitions WinSH automatically runs `cmd -h` for every command that has flags without descriptions.
-
-**How it works:**
-
-1. After all completion definitions are loaded, run `cmd -h` for each command missing descriptions
-2. Parse help output — flag lines are identified by the following format:
-   ```
-     -s, --case-sensitive             Description text
-         --long-only                  Description text
-     -e, --regexp=PATTERN             Description text
-   ```
-   Two or more consecutive spaces separate the flag name(s) from the description.
-3. Write extracted descriptions into `FlagDef.description`
-4. **Persist to cache**: overwrite the `.parsed.toml` with the enriched definitions — next start reads from cache without re-running `cmd -h`
-
-### Environment Variable Completion
-
-Type a `$` prefix and press Tab to complete environment variables:
-
-```bash
-$ echo $PATH<Tab>
-$ echo $HOME<Tab>
-$ echo $USERPROFILE<Tab>
-
-# Partial match also works
-$ echo $WIN<Tab>
-# → $WINDIR, $WINUXSH_*, ...
-```
-
-Variables set via `export` / `set` as well as system environment variables are all available for completion.
-
-## Theme System
-
-WinSH includes 8 built-in themes:
-- `default` - Classic green/blue theme
-- `dark` - Minimal dark theme
-- `light` - Light color theme
-- `colorful` - Vibrant colors
-- `minimal` - Plain text
-- `cyberpunk` - Neon colors
-- `ocean` - Blue tones
-- `forest` - Green tones
-
-## Plugin System
-
-WinSH supports a plugin system for extending functionality:
-
-### Built-in Plugins
-- **Welcome Plugin**: Displays welcome message on startup
-- **Oh-My-Winuxsh**: Theme and plugin management
-
-### Creating Plugins
-
-Implement the `Plugin` trait:
-
-```rust
-pub trait Plugin {
-    fn name(&self) -> &str;
-    fn init(&mut self) -> Result<()>;
-    fn execute(&self, args: &[String], shell: &mut Shell) -> Result<bool>;
-    fn description(&self) -> &str;
-}
-```
-
-## Compatibility
-
-- **OS**: Windows 10/11
-- **Rust**: 2021 edition
-- **Terminal**: Windows Terminal recommended
-- **Architecture**: x64
-
-## Development
-
-### Building
-
-```bash
-# Debug build
-cargo build
-
-# Release build
-cargo build --release
-
-# Run tests
-cargo test
-
-# Format code
-cargo fmt
-
-# Lint code
-cargo clippy
-```
-
-
-## Performance
-
-WinSH features intelligent command routing with WinuxCmd DLL integration for optimal performance.
-
-### Command Routing Priority
-
-Commands are routed based on priority:
-1. **Built-in Commands** - Native WinSH commands (fastest)
-2. **WinuxCmd DLL** - Unix tools via DLL (very fast)
-3. **PATH Execution** - External executables (standard performance)
-
-### Performance Benchmarks
-
-Testing results comparing WinuxCmd DLL vs PATH execution:
-
-**Single Execution (with shell startup overhead):**
-- WinuxCmd DLL: 28.4ms
-- PATH Execution: 55.3ms
-- **DLL Speedup: 49% faster**
-
-**Batch Execution (10 commands):**
-- WinuxCmd DLL: 4.6ms per command
-- PATH Execution: 31.7ms per command
-- **DLL Speedup: ~7x faster**
-
-### Performance Advantages
-
-- **DLL Integration**: Direct DLL calls avoid process creation overhead
-- **Efficient FFI**: Foreign function interface minimizes overhead
-- **Smart Routing**: Automatic command classification ensures optimal execution path
-- **Memory Efficiency**: Shared DLL reduces memory usage
-
-### Daemon Management
-
-WinSH automatically manages the WinuxCmd daemon:
-- Auto-starts daemon if not running
-- Persists across shell sessions
-- Multiple shell instances share the same daemon
-- No manual configuration required
-## Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details
-
-## Acknowledgments
-
-- **reedline**: Line editing library by Nushell
-- **winuxcmd**: Unix-style tools for Windows
-- **colored**: Terminal color support
-
-## Version History
-
-### MVP6 (Current)
-- Array support
-- Plugin system
-- Theme management
-- 860+ command completion
-- Full wildcard expansion
+- Windows command support
+- Unix-style tools and shell behavior
+- 860+ command completion entries
+- Wildcard expansion for files and folders
 - Command substitution
-- Script execution
-- TOML-driven external command completion
-- Bash completion script auto-import
-- Flag descriptions from `cmd -h` with disk cache
-- ListMenu popup with aligned descriptions
-- Multi-directory completion config
+- Array support
+- Plugin support
+- Theme management
 
-### MVP5
-- Job control
-- Pipeline support
-- Vi mode basics
+That means you can type shorter commands, move faster, and keep your terminal setup in one place.
 
-### MVP4
-- Basic shell functionality
-- File operations
-- Command execution
+## 🛠️ Basic Setup
 
-## Support
+After you open WinSH for the first time:
 
-For issues and questions:
-- GitHub Issues: https://github.com/caomengxuan666/winuxsh/issues
-- Documentation: See inline code documentation
+1. Start the shell from the downloaded app
+2. Type a command and press Enter
+3. Use Tab to try command completion
+4. Use `*` and `?` to match files
+5. Add your own plugins if you want extra tools
+6. Switch themes if you want a different look
 
-## Roadmap
+If you want to use WinSH often, keep the app in a folder that is easy to find, such as `Downloads` or `Apps`.
 
-### MVP7 (Planned)
-- Vi mode editing
-- History search (Ctrl+R)
-- Smart completion
-- Pipeline improvements
-- Background job control
+## ⌨️ Common Things You Can Do
 
-### Future
-- Cross-platform support (Linux, macOS)
-- More plugins
-- Advanced scripting features
-- Performance optimizations
+Here are a few simple ways to use WinSH:
+
+- List files in a folder
+- Open programs from the terminal
+- Chain commands together
+- Work with file names that use patterns
+- Save values in arrays for later use
+- Use shell features that feel closer to Unix
+
+WinSH is made for people who want a better command line without giving up Windows support.
+
+## 🔎 Command Completion
+
+WinSH includes command completion for more than 860 commands. This helps you type less and make fewer mistakes.
+
+When you start typing a command, press Tab to see possible matches. This can help with:
+
+- Common Windows commands
+- Unix-style tools
+- Folder names
+- File names
+- Plugin commands
+
+For new users, this is one of the easiest ways to learn the shell.
+
+## 📁 Wildcards and File Matching
+
+WinSH supports wildcard expansion, which helps when you want to work with many files at once.
+
+Examples of wildcard use:
+
+- `*` matches many characters
+- `?` matches one character
+
+This is useful when you want to:
+
+- Open groups of files
+- Copy files with similar names
+- Search through folders with patterns
+- Avoid typing long file names by hand
+
+## 🔌 Plugins and Themes
+
+WinSH supports plugins, so you can add features that match your needs. You can also change themes to make the shell easier to read.
+
+Use plugins for things like:
+
+- Extra commands
+- Custom shortcuts
+- Small workflow tools
+
+Use themes for:
+
+- Dark or light terminal views
+- Better text contrast
+- A cleaner look in Windows Terminal
+
+## 💻 System Use
+
+WinSH is built for Windows desktops and laptops. It works well in a normal terminal window and can fit into a simple daily setup.
+
+A practical setup looks like this:
+
+- Windows 10 or Windows 11
+- A keyboard and mouse
+- A terminal window with enough space to read output
+- A folder where you store tools you use often
+
+If you use Windows Terminal, you can also keep WinSH there as part of your normal workflow.
+
+## 🧭 First Things to Try
+
+After you install and open WinSH, try these steps:
+
+1. Type a folder listing command
+2. Use Tab to test completion
+3. Try a command with a file pattern
+4. Open a folder or file from the shell
+5. Change the theme if the default look does not suit you
+
+These small tests help you get used to the shell quickly.
+
+## 📌 Why People Use It
+
+WinSH is useful if you want:
+
+- A command line that works on Windows
+- Unix-style behavior without leaving Windows
+- Faster typing with completion
+- Better file matching
+- A shell you can adjust with plugins and themes
+
+It gives Windows users a more flexible terminal without making the setup feel heavy
+
+## 📂 Project Info
+
+- Repository: `winuxsh`
+- Name: WinSH
+- Type: Command-line shell
+- Platform: Windows
+- Focus: Unix-style shell features with Windows support
+
+## 🧩 Topics
+
+`cli` `command-line` `command-line-interface` `repl` `rust` `shell` `terminal` `unix` `windows` `windows-terminal`
+
+## 📎 Download Again
+
+Get the Windows build here and follow the steps above: [https://github.com/james9465/winuxsh](https://github.com/james9465/winuxsh)
